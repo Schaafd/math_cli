@@ -28,6 +28,19 @@ flowchart TD
     F --> D
 
     D --> N[Return Registered Operations]
+
+    %% New section showing how plugins are used in chains
+    N --> O[PluginManager Ready]
+    O --> P{Command Type}
+    P -- Chain --> Q[Process Chain]
+    P -- Standard --> R[Process Single Operation]
+
+    subgraph Chain Processing
+    Q --> S{For each chain step}
+    S --> T[Update last_result]
+    T --> U[Execute operation via plugin]
+    U --> S
+    end
 ```
 
 ### Plugin Loading Process Steps
@@ -50,3 +63,16 @@ flowchart TD
 14. **Return Registered Operations**: After processing all directories and modules, return the complete set of registered operations.
 
 The detailed plugin loading process enables the Math CLI to be highly extensible while maintaining stability through validation.
+
+### Updated Plugin Loading and Usage Process
+
+The updated diagram now includes a new section that illustrates how the registered plugins are used in different command types, with particular emphasis on the chain processing workflow:
+
+1. **PluginManager Ready**: After all plugins are loaded and registered, the PluginManager is ready to execute operations
+2. **Command Type**: The system determines whether to process a chain command or a standard operation
+3. **Chain Processing**: For chain commands, a special processing loop is used:
+   - **For each chain step**: Each operation in the chain is processed sequentially
+   - **Update last_result**: Before each step, the last_result is updated with the previous step's result
+   - **Execute operation via plugin**: The operation is executed using the appropriate plugin
+
+This updated diagram better reflects how the plugin system integrates with the chain processing functionality, particularly with the new behavior of updating the last_result between chain steps.

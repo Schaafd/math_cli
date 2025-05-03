@@ -13,7 +13,8 @@ stateDiagram-v2
     ProcessingHistory --> WaitingForCommand
 
     WaitingForCommand --> ProcessingChain: chain command
-    ProcessingChain --> WaitingForCommand
+    ProcessingChain --> WaitingForCommand: success/update last_result
+    ProcessingChain --> WaitingForCommand: error/restore last_result
 
     WaitingForCommand --> ProcessingOperation: standard operation
     ProcessingOperation --> WaitingForCommand
@@ -21,12 +22,16 @@ stateDiagram-v2
     WaitingForCommand --> [*]: exit/quit command
 
     state ProcessingChain {
-        [*] --> ExecutingStep
-        ExecutingStep --> NextStep: success
-        NextStep --> ExecutingStep
-        ExecutingStep --> ChainError: error
-        NextStep --> [*]: all steps done
-        ChainError --> [*]
+        [*] --> SaveOriginalResult
+        SaveOriginalResult --> ExecutingStep
+        ExecutingStep --> UpdateLastResult: step succeeds
+        UpdateLastResult --> NextStep
+        NextStep --> ExecutingStep: more steps
+        ExecutingStep --> ChainError: step fails
+        NextStep --> FinalizeChain: all steps done
+        ChainError --> RestoreOriginalResult
+        FinalizeChain --> [*]: update session last_result
+        RestoreOriginalResult --> [*]
     }
 ```
 
@@ -48,10 +53,17 @@ Processes history commands (view, get specific entry, clear), then returns to th
 
 #### ProcessingChain
 A complex state that handles chained calculations, with its own internal states:
+- **SaveOriginalResult**: Stores the current last_result to enable proper error handling
 - **ExecutingStep**: Executes a single step in the chain
+- **UpdateLastResult**: Updates the temporary last_result with the current step's result
 - **NextStep**: Prepares for the next operation in the chain
 - **ChainError**: Handles errors that occur during chain execution
-- The chain processing ends when all steps are complete or an error occurs
+- **FinalizeChain**: Finalizes successful chain execution, updates session's last_result
+- **RestoreOriginalResult**: Restores the original last_result if chain execution fails
+
+The chain processing now has two distinct exit paths:
+1. Success path: Finalizes the chain and updates the session's last_result
+2. Error path: Restores the original last_result to maintain consistency
 
 #### ProcessingOperation
 Executes a single mathematical operation, then returns to the WaitingForCommand state.

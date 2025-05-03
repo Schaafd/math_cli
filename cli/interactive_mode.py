@@ -37,22 +37,31 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
         print("  Example: chain add 5 3 | multiply $ 2")
         print("  The result of each operation becomes available as $ in the next one")
 
-    def parse_command(input_text, allow_chain=True):
-        """Parse the user input command and arguments."""
-        # Replace $ or ans with the last result if available
-        if last_result is not None:
-            input_text = input_text.replace('$', str(last_result))
+    def parse_command(input_text, allow_chain=True, current_result=None):
+        """Parse the user input command and arguments.
 
-            # Split the input to properly handle 'ans' replacement
-            parts = input_text.split()
-            for i in range(len(parts)):
-                if parts[i].lower() == 'ans':
-                    parts[i] = str(last_result)
-            input_text = ' '.join(parts)
+        Args:
+            input_text: The command text to parse
+            allow_chain: Whether to recognize chain commands
+            current_result: Override for the last_result (for chain operations)
+        """
+        # Use current_result if provided, otherwise default to last_result
+        result_to_use = current_result if current_result is not None else last_result
 
         # Handle chained calculations
         if allow_chain and input_text.lower().startswith('chain '):
             return "chain", input_text[6:].strip()  # Return the rest of the command after 'chain'
+
+        else:
+            if result_to_use is not None:
+                input_text = input_text.replace('$', str(result_to_use))
+
+                # Split the input to properly handle 'ans' replacement
+                parts = input_text.split()
+                for i in range(len(parts)):
+                    if parts[i].lower() == 'ans':
+                        parts[i] = str(result_to_use)
+                input_text = ' '.join(parts)
 
         parts = input_text.split()
         if not parts:
@@ -136,6 +145,8 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
 
     def handle_chain_command(chain_text):
         """Handle a chain of calculations."""
+        nonlocal last_result
+
         # Split the chain by the pipe symbol
         operations = chain_text.split('|')
         if not operations:
@@ -144,6 +155,7 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
 
         chain_result = None
         full_command = "chain " + chain_text
+        temp_result = last_result  # Store original last_result to restore if needed
 
         # Process each operation in the chain
         for i, operation in enumerate(operations):
@@ -151,27 +163,25 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             if not operation:
                 continue
 
-            # Replace $ with the result of the previous operation in the chain
-            if chain_result is not None:
-                operation = operation.replace('$', str(chain_result))
+            # Parse the operation (with current chain result)
+            # Use the updated parse_command that takes a current_result parameter
+            op_name, arg_parts = parse_command(
+                operation,
+                allow_chain=False,
+                current_result=chain_result
+            )
 
-                # Also handle 'ans' replacement
-                op_parts = operation.split()
-                for j in range(len(op_parts)):
-                    if op_parts[j].lower() == 'ans':
-                        op_parts[j] = str(chain_result)
-                operation = ' '.join(op_parts)
-
-            # Parse the operation
-            op_name, arg_parts = parse_command(operation, allow_chain=False)
             if not op_name:
                 print(f"Error in chain segment {i+1}: Invalid operation")
+                last_result = temp_result  # Restore original last_result
                 return
 
             # Process arguments
             arg_values = process_args(op_name, arg_parts)
+
             if not arg_values:
                 print(f"Error in chain segment {i+1}: Invalid arguments")
+                last_result = temp_result  # Restore original last_result
                 return
 
             try:
@@ -184,13 +194,19 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
 
             except ValueError as e:
                 print(f"Error in chain segment {i+1}: {e}")
+                last_result = temp_result  # Restore original last_result
                 return
 
         # Store the final result and add to history
         if chain_result is not None:
             print(f"Final result: {chain_result}")
             history.add_entry(full_command, chain_result)
+            # Update the session's last_result with the chain's final result
+            last_result = chain_result
             return chain_result
+        else:
+            # If no result was produced, restore the original last_result
+            last_result = temp_result
 
         return None
 
@@ -227,8 +243,7 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
 
             if op_name == "chain":
                 result = handle_chain_command(arg_parts)
-                if result is not None:
-                    last_result = result
+                # We don't need to update last_result here as it's now handled inside handle_chain_command
                 continue
 
             # Handle regular operations
