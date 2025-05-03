@@ -152,6 +152,33 @@ Result: 33554432.0
 
 This feature makes it easy to chain calculations without having to re-type previous results.
 
+### Chained Calculations
+
+In interactive mode, you can chain multiple calculations in a single command:
+
+- Use the `chain` command followed by operations separated by the pipe symbol `|`
+- Each operation's result becomes available as `$` or `ans` in the next operation
+- Each step's result is displayed, along with the final result
+
+Example:
+
+```
+Enter command: chain add 10 5 | multiply $ 2 | sqrt $
+Step 1: add 10 5 = 15.0
+Step 2: multiply 15.0 2 = 30.0
+Step 3: sqrt 30.0 = 5.477225575051661
+Final result: 5.477225575051661
+
+Enter command (previous: 5.477225575051661): power $ 2
+Result: 30.000000000000004
+```
+
+Benefits of chained calculations:
+- Perform complex multi-step calculations in a single command
+- See intermediate results at each step
+- Avoid having to manually use the previous result for sequential operations
+- All chain results are stored in history as a single entry
+
 ## Plugin System
 
 Math CLI features a flexible plugin system that allows you to extend its functionality without modifying the core codebase.

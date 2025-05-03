@@ -31,7 +31,13 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
         print("  $ or ans - Use the result of the previous calculation")
         print("  Example: add $ 5 (adds 5 to the previous result)")
 
-    def parse_command(input_text):
+        # Add chain calculation help
+        print("\nChained calculations:")
+        print("  chain <operation1> <args1> | <operation2> <args2> | ...")
+        print("  Example: chain add 5 3 | multiply $ 2")
+        print("  The result of each operation becomes available as $ in the next one")
+
+    def parse_command(input_text, allow_chain=True):
         """Parse the user input command and arguments."""
         # Replace $ or ans with the last result if available
         if last_result is not None:
@@ -43,6 +49,10 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
                 if parts[i].lower() == 'ans':
                     parts[i] = str(last_result)
             input_text = ' '.join(parts)
+
+        # Handle chained calculations
+        if allow_chain and input_text.lower().startswith('chain '):
+            return "chain", input_text[6:].strip()  # Return the rest of the command after 'chain'
 
         parts = input_text.split()
         if not parts:
@@ -124,8 +134,69 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             except ValueError:
                 print(f"Error: Invalid history index: {args[0]}")
 
-    # Show initial help message about previous result feature
+    def handle_chain_command(chain_text):
+        """Handle a chain of calculations."""
+        # Split the chain by the pipe symbol
+        operations = chain_text.split('|')
+        if not operations:
+            print("Error: No operations in chain")
+            return
+
+        chain_result = None
+        full_command = "chain " + chain_text
+
+        # Process each operation in the chain
+        for i, operation in enumerate(operations):
+            operation = operation.strip()
+            if not operation:
+                continue
+
+            # Replace $ with the result of the previous operation in the chain
+            if chain_result is not None:
+                operation = operation.replace('$', str(chain_result))
+
+                # Also handle 'ans' replacement
+                op_parts = operation.split()
+                for j in range(len(op_parts)):
+                    if op_parts[j].lower() == 'ans':
+                        op_parts[j] = str(chain_result)
+                operation = ' '.join(op_parts)
+
+            # Parse the operation
+            op_name, arg_parts = parse_command(operation, allow_chain=False)
+            if not op_name:
+                print(f"Error in chain segment {i+1}: Invalid operation")
+                return
+
+            # Process arguments
+            arg_values = process_args(op_name, arg_parts)
+            if not arg_values:
+                print(f"Error in chain segment {i+1}: Invalid arguments")
+                return
+
+            try:
+                # Execute the operation
+                result = plugin_manager.execute_operation(op_name, *arg_values)
+                chain_result = result
+
+                # Show intermediate result
+                print(f"Step {i+1}: {operation} = {result}")
+
+            except ValueError as e:
+                print(f"Error in chain segment {i+1}: {e}")
+                return
+
+        # Store the final result and add to history
+        if chain_result is not None:
+            print(f"Final result: {chain_result}")
+            history.add_entry(full_command, chain_result)
+            return chain_result
+
+        return None
+
+    # Show initial help message about features
     print("\nTip: Use '$' or 'ans' to reference the previous result in calculations")
+    print("Tip: Use 'chain' to perform multiple calculations in sequence (e.g., chain add 5 3 | multiply $ 2)")
 
     while True:
         try:
@@ -149,11 +220,18 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             if not op_name:
                 continue
 
-            # Handle history command
+            # Handle special commands
             if op_name == "history":
                 handle_history_command(arg_parts)
                 continue
 
+            if op_name == "chain":
+                result = handle_chain_command(arg_parts)
+                if result is not None:
+                    last_result = result
+                continue
+
+            # Handle regular operations
             arg_values = process_args(op_name, arg_parts)
             if not arg_values:
                 continue
