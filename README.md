@@ -15,6 +15,7 @@ A modular command-line calculator with plugin support for mathematical operation
   - [Using Custom Plugins](#using-custom-plugins)
   - [Creating Custom Plugins](#creating-custom-plugins)
   - [Plugin Examples](#plugin-examples)
+- [Code Structure](#code-structure)
 - [Command-Line Arguments](#command-line-arguments)
 - [Contributing](#contributing)
 
@@ -283,6 +284,18 @@ options:
                         Directory containing additional plugins
   --list-plugins        List available operation plugins
 ```
+
+## Code Structure Diagrams
+
+To better understand the structure and flow of the Math CLI application, refer to these diagrams:
+
+- [Class Diagram (UML)](docs/class-diagram.md) - Shows the main classes and their relationships
+- [Package Structure](docs/package-structure.md) - Shows how the code is organized into packages and modules
+- [Plugin System Flowchart](docs/plugin-system.md) - Explains how the plugin system works
+- [Command Execution Sequence](docs/command-execution.md) - Details how commands are processed
+- [Interactive Mode State Diagram](docs/interactive-mode.md) - Shows the state transitions in interactive mode
+- [User Interaction Diagram](docs/user-interaction.md) - Shows how users interact with the application
+- [Plugin Loading Process](docs/plugin-loading.md) - Details how plugins are discovered and loaded
 
 ## Contributing
 
