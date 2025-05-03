@@ -1,26 +1,78 @@
-# Mathematical Operations CLI Documentation
+# Math CLI
 
-## Overview
+A modular command-line calculator with plugin support for mathematical operations.
 
-The Mathematical Operations CLI is a command-line tool that provides access to a wide range of mathematical operations. It can be used in both command mode (for single operations) and interactive mode (for multiple sequential operations).
+## Table of Contents
+
+- [Installation](#installation)
+- [Basic Usage](#basic-usage)
+- [Available Operations](#available-operations)
+- [Interactive Mode](#interactive-mode)
+- [Plugin System](#plugin-system)
+  - [Using Custom Plugins](#using-custom-plugins)
+  - [Creating Custom Plugins](#creating-custom-plugins)
+  - [Plugin Examples](#plugin-examples)
+- [Command-Line Arguments](#command-line-arguments)
+- [Contributing](#contributing)
 
 ## Installation
 
-Save the script as `math_cli.py` and ensure you have Python 3.x installed.
-
-## Usage
-
-### Command Mode
-
-Run a single mathematical operation:
+Clone the repository and install the package:
 
 ```bash
-python math_cli.py <operation> <arguments>
+git clone https://github.com/yourusername/math-cli.git
+cd math-cli
+pip install -e .
 ```
 
-### Interactive Mode
+## Basic Usage
 
-Start the CLI in interactive mode:
+Math CLI provides a simple interface for performing mathematical operations:
+
+```bash
+# Basic arithmetic
+python math_cli.py add 5 3
+python math_cli.py subtract 10 4
+python math_cli.py multiply 6 7
+python math_cli.py divide 20 5
+
+# Other operations
+python math_cli.py sqrt 16
+python math_cli.py power 2 8
+python math_cli.py factorial 5
+python math_cli.py abs -42
+```
+
+Each operation follows the pattern: `python math_cli.py <operation> <arguments>`
+
+## Available Operations
+
+To list all available operations:
+
+```bash
+python math_cli.py --list-plugins
+```
+
+Built-in operations include:
+
+- `add` - Add two numbers
+- `subtract` - Subtract the second number from the first
+- `multiply` - Multiply two numbers
+- `divide` - Divide the first number by the second
+- `power` - Raise a base to an exponent
+- `sqrt` - Calculate the square root
+- `factorial` - Calculate the factorial
+- `log` - Calculate logarithm with optional base
+- `sin` - Calculate sine (in radians)
+- `cos` - Calculate cosine (in radians)
+- `tan` - Calculate tangent (in radians)
+- `to_radians` - Convert degrees to radians
+- `to_degrees` - Convert radians to degrees
+- `abs` - Calculate absolute value
+
+## Interactive Mode
+
+Run Math CLI in interactive mode to perform multiple calculations in succession:
 
 ```bash
 python math_cli.py --interactive
@@ -28,117 +80,145 @@ python math_cli.py --interactive
 python math_cli.py -i
 ```
 
-In interactive mode, you can enter operations one after another without restarting the script. Type `help` to see all available commands, and `exit` or `quit` to exit interactive mode.
+In interactive mode:
+- Type an operation followed by its arguments (e.g., `add 5 3`)
+- Type `help` to see available commands
+- Type `exit` or `quit` to exit
 
-## Available Operations
-
-| Operation | Arguments | Description | Example |
-|-----------|-----------|-------------|---------|
-| `add` | a b | Add two numbers | `add 5 3` |
-| `subtract` | a b | Subtract b from a | `subtract 7 2` |
-| `multiply` | a b | Multiply two numbers | `multiply 4 6` |
-| `divide` | a b | Divide a by b | `divide 10 2` |
-| `power` | base exponent | Raise base to the power of exponent | `power 2 3` |
-| `sqrt` | n | Calculate the square root of n | `sqrt 16` |
-| `factorial` | n | Calculate the factorial of n | `factorial 5` |
-| `log` | n [base] | Calculate the logarithm of n with the given base (default: natural log) | `log 100 10` |
-| `sin` | angle | Calculate the sine of an angle in radians | `sin 1.57` |
-| `cos` | angle | Calculate the cosine of an angle in radians | `cos 3.14` |
-| `tan` | angle | Calculate the tangent of an angle in radians | `tan 0.78` |
-| `to_radians` | degrees | Convert degrees to radians | `to_radians 180` |
-| `to_degrees` | radians | Convert radians to degrees | `to_degrees 3.14` |
-| `abs` | n | Calculate the absolute value of n | `abs -10` |
-
-## Examples
-
-### Command Mode Examples
-
-1. Add two numbers:
-   ```bash
-   python math_cli.py add 5 3
-   # Result: 8.0
-   ```
-
-2. Calculate the square root:
-   ```bash
-   python math_cli.py sqrt 16
-   # Result: 4.0
-   ```
-
-3. Calculate factorial:
-   ```bash
-   python math_cli.py factorial 5
-   # Result: 120.0
-   ```
-
-4. Calculate sin of an angle:
-   ```bash
-   python math_cli.py sin 1.57
-   # Result: 0.9999996829318346
-   ```
-
-### Interactive Mode Examples
-
+Example interactive session:
 ```
-$ python math_cli.py -i
 Mathematical Operations CLI - Interactive Mode
 Type 'exit' or 'quit' to exit, 'help' for available commands
 
-Enter command: add 5 3
-Result: 8.0
+Enter command: sqrt 16
+Result: 4.0
 
 Enter command: power 2 10
 Result: 1024.0
-
-Enter command: sqrt 144
-Result: 12.0
-
-Enter command: help
-
-Available operations:
-  add a b - Add two numbers
-  subtract a b - Subtract b from a
-  multiply a b - Multiply two numbers
-  divide a b - Divide a by b
-  power base exponent - Raise base to the power of exponent
-  sqrt n - Calculate the square root of n
-  factorial n - Calculate the factorial of n
-  log n base - Calculate the logarithm of n with the given base
-  sin angle - Calculate the sine of an angle in radians
-  cos angle - Calculate the cosine of an angle in radians
-  tan angle - Calculate the tangent of an angle in radians
-  to_radians degrees - Convert degrees to radians
-  to_degrees radians - Convert radians to degrees
-  abs n - Calculate the absolute value of n
 
 Enter command: exit
 Exiting interactive mode...
 ```
 
-## Error Handling
+## Plugin System
 
-The CLI handles various error conditions gracefully:
+Math CLI features a flexible plugin system that allows you to extend its functionality without modifying the core codebase.
 
-- Division by zero
-- Square root of negative numbers
-- Factorial of negative numbers or non-integers
-- Logarithm of non-positive numbers or invalid bases
-- Missing required arguments
+### Using Custom Plugins
 
-When an error occurs, the CLI will display an error message explaining the issue.
-
-## Getting Help
-
-To see all available operations and their descriptions:
+To use custom plugins, specify the directory containing your plugin files:
 
 ```bash
-python math_cli.py --help
+python math_cli.py --plugin-dir /path/to/plugins add 5 3
 ```
 
-For help on a specific operation:
+You can specify multiple plugin directories:
 
 ```bash
-python math_cli.py <operation> --help
+python math_cli.py --plugin-dir /path/to/plugins1 --plugin-dir /path/to/plugins2 -i
 ```
 
-In interactive mode, type `help` to see all available commands.
+### Creating Custom Plugins
+
+Creating a custom plugin is straightforward:
+
+1. Create a new Python file (e.g., `my_plugin.py`)
+2. Import the base operation class: `from core.base_operations import MathOperation`
+3. Define one or more classes that inherit from `MathOperation`
+4. Implement the required attributes and methods:
+   - `name`: Command name (string)
+   - `args`: List of argument names (list of strings)
+   - `help`: Help text description (string)
+   - `execute()`: Static method implementing the operation logic
+
+### Plugin Examples
+
+**Example 1: Basic Custom Plugin**
+
+```python
+# my_plugin.py
+from core.base_operations import MathOperation
+import math
+
+class HypotenuseOperation(MathOperation):
+    name = "hypotenuse"
+    args = ["a", "b"]
+    help = "Calculate the hypotenuse of a right triangle"
+
+    @classmethod
+    def execute(cls, a, b):
+        return math.sqrt(a**2 + b**2)
+```
+
+Usage:
+```bash
+python math_cli.py --plugin-dir /path/to/directory/containing/my_plugin.py hypotenuse 3 4
+Result: 5.0
+```
+
+**Example 2: Multiple Operations in One Plugin**
+
+```python
+# advanced_plugin.py
+from core.base_operations import MathOperation
+import math
+
+class CircleAreaOperation(MathOperation):
+    name = "circle_area"
+    args = ["radius"]
+    help = "Calculate the area of a circle"
+
+    @classmethod
+    def execute(cls, radius):
+        if radius < 0:
+            raise ValueError("Radius cannot be negative")
+        return math.pi * radius**2
+
+class CylinderVolumeOperation(MathOperation):
+    name = "cylinder_volume"
+    args = ["radius", "height"]
+    help = "Calculate the volume of a cylinder"
+
+    @classmethod
+    def execute(cls, radius, height):
+        if radius < 0 or height < 0:
+            raise ValueError("Dimensions cannot be negative")
+        return math.pi * radius**2 * height
+```
+
+## Command-Line Arguments
+
+```
+usage: math_cli.py [-h] [--interactive] [--plugin-dir PLUGIN_DIR] [--list-plugins] ...
+
+Perform mathematical operations
+
+positional arguments:
+  operation             Operation to perform
+
+options:
+  -h, --help            show this help message and exit
+  --interactive, -i     Run in interactive mode
+  --plugin-dir PLUGIN_DIR
+                        Directory containing additional plugins
+  --list-plugins        List available operation plugins
+```
+
+## Contributing
+
+Contributions to Math CLI are welcome! Here are some ways to contribute:
+
+1. Report bugs and suggest features by creating issues
+2. Submit pull requests with bug fixes or new features
+3. Create new plugins and share them with the community
+4. Improve documentation and tests
+
+When contributing code, please ensure:
+- Code follows the project's style guidelines
+- New features include appropriate tests
+- Documentation is updated to reflect changes
+
+---
+
+For more information, bug reports, or to contribute, please visit:
+[https://github.com/yourusername/math-cli](https://github.com/yourusername/math-cli)
