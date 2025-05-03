@@ -15,7 +15,7 @@ A modular command-line calculator with plugin support for mathematical operation
   - [Using Custom Plugins](#using-custom-plugins)
   - [Creating Custom Plugins](#creating-custom-plugins)
   - [Plugin Examples](#plugin-examples)
-- [Code Structure](#code-structure)
+- [Code Structure Diagrams](#code-structure-diagrams)
 - [Command-Line Arguments](#command-line-arguments)
 - [Contributing](#contributing)
 
