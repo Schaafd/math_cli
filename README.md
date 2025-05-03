@@ -9,6 +9,7 @@ A modular command-line calculator with plugin support for mathematical operation
 - [Available Operations](#available-operations)
 - [Interactive Mode](#interactive-mode)
   - [History Feature](#history-feature)
+  - [Previous Result Reference](#previous-result-reference)
 - [Plugin System](#plugin-system)
   - [Using Custom Plugins](#using-custom-plugins)
   - [Creating Custom Plugins](#creating-custom-plugins)
@@ -127,6 +128,29 @@ Enter command: !2
 Re-running: add 5 10
 Result: 15.0
 ```
+### Previous Result Reference
+
+In interactive mode, you can use the result of the previous calculation in your next operation:
+
+- Use `$` or `ans` to reference the previous result
+- The previous result is also shown in the command prompt
+
+Example:
+```
+Enter command: multiply 8 5
+Result: 40.0
+
+Enter command (previous: 40.0): add $ 10
+Result: 50.0
+
+Enter command (previous: 50.0): divide ans 2
+Result: 25.0
+
+Enter command (previous: 25.0): power 2 $
+Result: 33554432.0
+```
+
+This feature makes it easy to chain calculations without having to re-type previous results.
 
 ## Plugin System
 

@@ -9,6 +9,9 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
     # Initialize history manager
     history = HistoryManager()
 
+    # Store the last result for reference
+    last_result = None
+
     def show_help():
         """Display help information for all operations."""
         print("\nAvailable operations:")
@@ -23,8 +26,24 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
         print("  history clear - Clear calculation history")
         print("  !<n> - Re-run the nth most recent calculation")
 
+        # Add previous result reference help
+        print("\nPrevious result reference:")
+        print("  $ or ans - Use the result of the previous calculation")
+        print("  Example: add $ 5 (adds 5 to the previous result)")
+
     def parse_command(input_text):
         """Parse the user input command and arguments."""
+        # Replace $ or ans with the last result if available
+        if last_result is not None:
+            input_text = input_text.replace('$', str(last_result))
+
+            # Split the input to properly handle 'ans' replacement
+            parts = input_text.split()
+            for i in range(len(parts)):
+                if parts[i].lower() == 'ans':
+                    parts[i] = str(last_result)
+            input_text = ' '.join(parts)
+
         parts = input_text.split()
         if not parts:
             return None, None
@@ -68,7 +87,7 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             try:
                 if arg_name == 'n' and op_name == 'factorial':
                     # Factorial needs integer
-                    arg_values.append(int(arg_parts[i]))
+                    arg_values.append(int(float(arg_parts[i])))
                 else:
                     arg_values.append(float(arg_parts[i]))
             except ValueError:
@@ -105,9 +124,18 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             except ValueError:
                 print(f"Error: Invalid history index: {args[0]}")
 
+    # Show initial help message about previous result feature
+    print("\nTip: Use '$' or 'ans' to reference the previous result in calculations")
+
     while True:
         try:
-            user_input = input("\nEnter command: ").strip()
+            # Show the previous result in the prompt if available
+            prompt = "\nEnter command"
+            if last_result is not None:
+                prompt += f" (previous: {last_result})"
+            prompt += ": "
+
+            user_input = input(prompt).strip()
 
             if user_input.lower() in ('exit', 'quit'):
                 print("Exiting interactive mode...")
@@ -133,6 +161,9 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             try:
                 result = plugin_manager.execute_operation(op_name, *arg_values)
                 print(f"Result: {result}")
+
+                # Store as the last result for reference
+                last_result = result
 
                 # Add to history
                 history.add_entry(user_input, result)
