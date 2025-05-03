@@ -1,9 +1,13 @@
 from typing import Dict, Any
+from utils.history import HistoryManager
 
 def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
     """Run the CLI in interactive mode."""
     print("Mathematical Operations CLI - Interactive Mode")
     print("Type 'exit' or 'quit' to exit, 'help' for available commands")
+
+    # Initialize history manager
+    history = HistoryManager()
 
     def show_help():
         """Display help information for all operations."""
@@ -12,11 +16,37 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             args_str = ' '.join(op_info['args'])
             print(f"  {op_name} {args_str} - {op_info['help']}")
 
+        # Add history command help
+        print("\nHistory commands:")
+        print("  history - Show calculation history")
+        print("  history <n> - Show the nth most recent calculation")
+        print("  history clear - Clear calculation history")
+        print("  !<n> - Re-run the nth most recent calculation")
+
     def parse_command(input_text):
         """Parse the user input command and arguments."""
         parts = input_text.split()
         if not parts:
             return None, None
+
+        # Handle history commands
+        if parts[0] == "history":
+            return "history", parts[1:] if len(parts) > 1 else []
+
+        # Handle history recall shorthand (!n)
+        if parts[0].startswith("!") and len(parts[0]) > 1:
+            try:
+                idx = int(parts[0][1:])
+                entry = history.get_entry(idx - 1)  # Convert to 0-based index
+                if entry:
+                    print(f"Re-running: {entry['command']}")
+                    return parse_command(entry['command'])
+                else:
+                    print(f"Error: History entry {idx} not found")
+                    return None, None
+            except ValueError:
+                print(f"Error: Invalid history index: {parts[0][1:]}")
+                return None, None
 
         op_name = parts[0]
         if op_name not in operations_metadata:
@@ -47,6 +77,34 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
 
         return arg_values
 
+    def handle_history_command(args):
+        """Handle history-related commands."""
+        if not args:
+            # Display all history
+            entries = history.get_all_entries()
+            if not entries:
+                print("History is empty")
+                return
+
+            print("\nCalculation History:")
+            for i, entry in enumerate(entries):
+                print(f"{i+1}: {entry['command']} = {entry['result']}")
+        elif args[0] == "clear":
+            # Clear history
+            history.clear()
+            print("History cleared")
+        else:
+            # Show specific history entry
+            try:
+                idx = int(args[0]) - 1  # Convert to 0-based index
+                entry = history.get_entry(idx)
+                if entry:
+                    print(f"{args[0]}: {entry['command']} = {entry['result']}")
+                else:
+                    print(f"Error: History entry {args[0]} not found")
+            except ValueError:
+                print(f"Error: Invalid history index: {args[0]}")
+
     while True:
         try:
             user_input = input("\nEnter command: ").strip()
@@ -63,6 +121,11 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             if not op_name:
                 continue
 
+            # Handle history command
+            if op_name == "history":
+                handle_history_command(arg_parts)
+                continue
+
             arg_values = process_args(op_name, arg_parts)
             if not arg_values:
                 continue
@@ -70,6 +133,10 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             try:
                 result = plugin_manager.execute_operation(op_name, *arg_values)
                 print(f"Result: {result}")
+
+                # Add to history
+                history.add_entry(user_input, result)
+
             except ValueError as e:
                 print(f"Error: {e}")
 

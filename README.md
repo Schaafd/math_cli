@@ -8,6 +8,7 @@ A modular command-line calculator with plugin support for mathematical operation
 - [Basic Usage](#basic-usage)
 - [Available Operations](#available-operations)
 - [Interactive Mode](#interactive-mode)
+  - [History Feature](#history-feature)
 - [Plugin System](#plugin-system)
   - [Using Custom Plugins](#using-custom-plugins)
   - [Creating Custom Plugins](#creating-custom-plugins)
@@ -98,6 +99,33 @@ Result: 1024.0
 
 Enter command: exit
 Exiting interactive mode...
+```
+
+### History Feature
+
+In interactive mode, you can access your calculation history:
+
+- `history` - Show all past calculations in the current session
+- `history <n>` - Show the nth most recent calculation
+- `history clear` - Clear all history
+- `!<n>` - Re-run the nth calculation from history
+
+Example:
+```
+Enter command: add 5 10
+Result: 15.0
+
+Enter command: multiply 3 7
+Result: 21.0
+
+Enter command: history
+Calculation History:
+1: multiply 3 7 = 21.0
+2: add 5 10 = 15.0
+
+Enter command: !2
+Re-running: add 5 10
+Result: 15.0
 ```
 
 ## Plugin System
