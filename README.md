@@ -10,6 +10,7 @@ A modular command-line calculator with plugin support for mathematical operation
 - [Interactive Mode](#interactive-mode)
   - [History Feature](#history-feature)
   - [Previous Result Reference](#previous-result-reference)
+  - [Chained Calculations](#chained-calculations)
 - [Plugin System](#plugin-system)
   - [Using Custom Plugins](#using-custom-plugins)
   - [Creating Custom Plugins](#creating-custom-plugins)
