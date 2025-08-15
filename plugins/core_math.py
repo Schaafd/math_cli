@@ -68,7 +68,10 @@ class FactorialOperation(MathOperation):
     def execute(cls, n):
         if n < 0:
             raise ValueError("Cannot calculate factorial of a negative number")
-        if not isinstance(n, int):
+        # Convert to int if it's a whole number
+        if isinstance(n, float) and n.is_integer():
+            n = int(n)
+        elif not isinstance(n, int):
             raise ValueError("Factorial requires an integer")
         return math.factorial(n)
 

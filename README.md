@@ -35,26 +35,26 @@ Math CLI provides a simple interface for performing mathematical operations:
 
 ```bash
 # Basic arithmetic
-python math_cli.py add 5 3
-python math_cli.py subtract 10 4
-python math_cli.py multiply 6 7
-python math_cli.py divide 20 5
+python3 math_cli.py add 5 3
+python3 math_cli.py subtract 10 4
+python3 math_cli.py multiply 6 7
+python3 math_cli.py divide 20 5
 
 # Other operations
-python math_cli.py sqrt 16
-python math_cli.py power 2 8
-python math_cli.py factorial 5
-python math_cli.py abs -42
+python3 math_cli.py sqrt 16
+python3 math_cli.py power 2 8
+python3 math_cli.py factorial 5
+python3 math_cli.py abs -42
 ```
 
-Each operation follows the pattern: `python math_cli.py <operation> <arguments>`
+Each operation follows the pattern: `python3 math_cli.py <operation> <arguments>`
 
 ## Available Operations
 
 To list all available operations:
 
 ```bash
-python math_cli.py --list-plugins
+python3 math_cli.py --list-plugins
 ```
 
 Built-in operations include:
@@ -79,9 +79,9 @@ Built-in operations include:
 Run Math CLI in interactive mode to perform multiple calculations in succession:
 
 ```bash
-python math_cli.py --interactive
+python3 math_cli.py --interactive
 # or
-python math_cli.py -i
+python3 math_cli.py -i
 ```
 
 In interactive mode:
@@ -190,13 +190,13 @@ Math CLI features a flexible plugin system that allows you to extend its functio
 To use custom plugins, specify the directory containing your plugin files:
 
 ```bash
-python math_cli.py --plugin-dir /path/to/plugins add 5 3
+python3 math_cli.py --plugin-dir /path/to/plugins add 5 3
 ```
 
 You can specify multiple plugin directories:
 
 ```bash
-python math_cli.py --plugin-dir /path/to/plugins1 --plugin-dir /path/to/plugins2 -i
+python3 math_cli.py --plugin-dir /path/to/plugins1 --plugin-dir /path/to/plugins2 -i
 ```
 
 ### Creating Custom Plugins
@@ -233,7 +233,7 @@ class HypotenuseOperation(MathOperation):
 
 Usage:
 ```bash
-python math_cli.py --plugin-dir /path/to/directory/containing/my_plugin.py hypotenuse 3 4
+python3 math_cli.py --plugin-dir /path/to/directory/containing/my_plugin.py hypotenuse 3 4
 Result: 5.0
 ```
 
@@ -270,12 +270,29 @@ class CylinderVolumeOperation(MathOperation):
 ## Command-Line Arguments
 
 ```
-usage: math_cli.py [-h] [--interactive] [--plugin-dir PLUGIN_DIR] [--list-plugins] ...
+usage: math_cli.py [-h] [--interactive] [--plugin-dir PLUGIN_DIR] [--list-plugins]
+                   {abs,add,cos,to_radians,divide,factorial,log,multiply,power,to_degrees,sin,sqrt,subtract,tan,example} ...
 
 Perform mathematical operations
 
 positional arguments:
-  operation             Operation to perform
+  {abs,add,cos,to_radians,divide,factorial,log,multiply,power,to_degrees,sin,sqrt,subtract,tan,example}
+                        Operation to perform
+    abs                 Calculate the absolute value of n
+    add                 Add two numbers
+    cos                 Calculate the cosine of an angle in radians
+    to_radians          Convert degrees to radians
+    divide              Divide a by b
+    factorial           Calculate the factorial of n
+    log                 Calculate the logarithm of n with the given base
+    multiply            Multiply two numbers
+    power               Raise base to the power of exponent
+    to_degrees          Convert radians to degrees
+    sin                 Calculate the sine of an angle in radians
+    sqrt                Calculate the square root of n
+    subtract            Subtract b from a
+    tan                 Calculate the tangent of an angle in radians
+    example             Example operation that does something with x and y
 
 options:
   -h, --help            show this help message and exit
