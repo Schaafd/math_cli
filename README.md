@@ -39,7 +39,7 @@ pip install -e .
 Run a simple addition to verify the installation:
 
 ```bash
-python3 math_cli.py add 2 2
+math-cli add 2 2
 # Output: 4.0
 ```
 
