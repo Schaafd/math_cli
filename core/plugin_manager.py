@@ -52,6 +52,10 @@ class PluginManager:
             module = importlib.import_module(module_name)
             for _, submodule_name, ispkg in pkgutil.iter_modules(module.__path__, module.__name__ + '.'):
                 if not ispkg:  # Only process modules, not packages
+                    base_name = submodule_name.rsplit('.', 1)[-1]
+                    # Skip templates and private modules
+                    if base_name.endswith('plugin_template') or base_name.startswith('_'):
+                        continue
                     try:
                         submodule = importlib.import_module(submodule_name)
                         self._register_operations_from_module(submodule)
