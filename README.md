@@ -304,16 +304,24 @@ options:
 
 ## Code Structure Diagrams
 
-To better understand the structure and flow of the Math CLI application, refer to these diagrams:
+To better understand the structure and flow of the Math CLI application, refer to these diagrams.
 
+### Overview
 - [Class Diagram (UML)](docs/class-diagram.md) - Shows the main classes and their relationships
 - [Package Structure](docs/package-structure.md) - Shows how the code is organized into packages and modules
-- [Plugin System Flowchart](docs/plugin-system.md) - Explains how the plugin system works
+
+### Application Flow
+- [CLI Startup Flowchart](docs/cli-startup.md) - Shows how command-line arguments are processed and the run mode is selected
 - [Command Execution Sequence](docs/command-execution.md) - Details how commands are processed
 - [Interactive Mode State Diagram](docs/interactive-mode.md) - Shows the state transitions in interactive mode
-- [User Interaction Diagram](docs/user-interaction.md) - Shows how users interact with the application
+- [History Management Flow](docs/history-flow.md) - Describes how command history is stored and retrieved
+
+### Plugin Architecture
+- [Plugin System Flowchart](docs/plugin-system.md) - Explains how the plugin system works
 - [Plugin Loading Process](docs/plugin-loading.md) - Details how plugins are discovered and loaded
 
+### User Interaction
+- [User Interaction Diagram](docs/user-interaction.md) - Shows how users interact with the application
 ## Contributing
 
 Contributions to Math CLI are welcome! Here are some ways to contribute:
