@@ -33,7 +33,7 @@ class PluginManager:
                 sys.path.insert(0, directory)
 
     def discover_plugins(self) -> None:
-        """Discover and load plugins from the plugins directory."""
+        """Discover and load plugins from plugin directories."""
         # First load built-in plugins
         self._load_plugins_from_module("plugins")
 
