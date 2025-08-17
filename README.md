@@ -5,6 +5,7 @@ A modular command-line calculator with plugin support for mathematical operation
 ## Table of Contents
 
 - [Installation](#installation)
+- [Quick Start](#quick-start)
 - [Basic Usage](#basic-usage)
 - [Available Operations](#available-operations)
 - [Interactive Mode](#interactive-mode)
@@ -18,15 +19,28 @@ A modular command-line calculator with plugin support for mathematical operation
 - [Code Structure Diagrams](#code-structure-diagrams)
 - [Command-Line Arguments](#command-line-arguments)
 - [Contributing](#contributing)
+- [Testing](#testing)
+- [License](#license)
 
 ## Installation
+
+Math CLI requires **Python 3.8+** and `pip`. It relies only on the Python standard library, so no additional dependencies are needed.
 
 Clone the repository and install the package:
 
 ```bash
-git clone https://github.com/yourusername/math-cli.git
+git clone https://github.com/math-cli/math-cli.git
 cd math-cli
 pip install -e .
+```
+
+## Quick Start
+
+Run a simple addition to verify the installation:
+
+```bash
+python3 math_cli.py add 2 2
+# Output: 4.0
 ```
 
 ## Basic Usage
@@ -183,7 +197,7 @@ Benefits of chained calculations:
 
 ## Plugin System
 
-Math CLI features a flexible plugin system that allows you to extend its functionality without modifying the core codebase.
+Math CLI features a flexible plugin system that allows you to extend its functionality without modifying the core codebase. Plugins are simple Python modules that subclass `MathOperation` and are loaded at runtime with the `--plugin-dir` option. The sections below show how to use and create plugins.
 
 ### Using Custom Plugins
 
@@ -328,7 +342,19 @@ When contributing code, please ensure:
 - New features include appropriate tests
 - Documentation is updated to reflect changes
 
+## Testing
+
+Run the unit tests to ensure everything works:
+
+```bash
+python -m pytest
+```
+
+## License
+
+This project is licensed under the MIT License.
+
 ---
 
 For more information, bug reports, or to contribute, please visit:
-[https://github.com/yourusername/math-cli](https://github.com/yourusername/math-cli)
+[https://github.com/math-cli/math-cli](https://github.com/math-cli/math-cli)
