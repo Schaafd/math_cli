@@ -66,7 +66,7 @@ Built-in operations include:
 - `power` - Raise a base to an exponent
 - `sqrt` - Calculate the square root
 - `factorial` - Calculate the factorial
-- `log` - Calculate logarithm with optional base
+- `log` - Calculate logarithm with a specified base
 - `sin` - Calculate sine (in radians)
 - `cos` - Calculate cosine (in radians)
 - `tan` - Calculate tangent (in radians)
