@@ -5,6 +5,7 @@ A modular command-line calculator with plugin support for mathematical operation
 ## Table of Contents
 
 - [Installation](#installation)
+- [Quick Start](#quick-start)
 - [Basic Usage](#basic-usage)
 - [Available Operations](#available-operations)
 - [Interactive Mode](#interactive-mode)
@@ -18,15 +19,28 @@ A modular command-line calculator with plugin support for mathematical operation
 - [Code Structure Diagrams](#code-structure-diagrams)
 - [Command-Line Arguments](#command-line-arguments)
 - [Contributing](#contributing)
+- [Testing](#testing)
+- [License](#license)
 
 ## Installation
+
+Math CLI requires **Python 3.8+** and `pip`. It relies only on the Python standard library, so no additional dependencies are needed.
 
 Clone the repository and install the package:
 
 ```bash
-git clone https://github.com/yourusername/math-cli.git
+git clone https://github.com/math-cli/math-cli.git
 cd math-cli
 pip install -e .
+```
+
+## Quick Start
+
+Run a simple addition to verify the installation:
+
+```bash
+math-cli add 2 2
+# Output: 4.0
 ```
 
 ## Basic Usage
@@ -66,7 +80,7 @@ Built-in operations include:
 - `power` - Raise a base to an exponent
 - `sqrt` - Calculate the square root
 - `factorial` - Calculate the factorial
-- `log` - Calculate logarithm with optional base
+- `log` - Calculate logarithm with a specified base
 - `sin` - Calculate sine (in radians)
 - `cos` - Calculate cosine (in radians)
 - `tan` - Calculate tangent (in radians)
@@ -183,7 +197,7 @@ Benefits of chained calculations:
 
 ## Plugin System
 
-Math CLI features a flexible plugin system that allows you to extend its functionality without modifying the core codebase.
+Math CLI features a flexible plugin system that allows you to extend its functionality without modifying the core codebase. Plugins are simple Python modules that subclass `MathOperation` and are loaded at runtime with the `--plugin-dir` option. The sections below show how to use and create plugins.
 
 ### Using Custom Plugins
 
@@ -304,16 +318,24 @@ options:
 
 ## Code Structure Diagrams
 
-To better understand the structure and flow of the Math CLI application, refer to these diagrams:
+To better understand the structure and flow of the Math CLI application, refer to these diagrams.
 
+### Overview
 - [Class Diagram (UML)](docs/class-diagram.md) - Shows the main classes and their relationships
 - [Package Structure](docs/package-structure.md) - Shows how the code is organized into packages and modules
-- [Plugin System Flowchart](docs/plugin-system.md) - Explains how the plugin system works
+
+### Application Flow
+- [CLI Startup Flowchart](docs/cli-startup.md) - Shows how command-line arguments are processed and the run mode is selected
 - [Command Execution Sequence](docs/command-execution.md) - Details how commands are processed
 - [Interactive Mode State Diagram](docs/interactive-mode.md) - Shows the state transitions in interactive mode
-- [User Interaction Diagram](docs/user-interaction.md) - Shows how users interact with the application
+- [History Management Flow](docs/history-flow.md) - Describes how command history is stored and retrieved
+
+### Plugin Architecture
+- [Plugin System Flowchart](docs/plugin-system.md) - Explains how the plugin system works
 - [Plugin Loading Process](docs/plugin-loading.md) - Details how plugins are discovered and loaded
 
+### User Interaction
+- [User Interaction Diagram](docs/user-interaction.md) - Shows how users interact with the application
 ## Contributing
 
 Contributions to Math CLI are welcome! Here are some ways to contribute:
@@ -328,7 +350,19 @@ When contributing code, please ensure:
 - New features include appropriate tests
 - Documentation is updated to reflect changes
 
+## Testing
+
+Run the unit tests to ensure everything works:
+
+```bash
+python -m pytest
+```
+
+## License
+
+This project is licensed under the MIT License.
+
 ---
 
 For more information, bug reports, or to contribute, please visit:
-[https://github.com/yourusername/math-cli](https://github.com/yourusername/math-cli)
+[https://github.com/math-cli/math-cli](https://github.com/math-cli/math-cli)

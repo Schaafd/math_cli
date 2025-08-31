@@ -106,7 +106,11 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             try:
                 if arg_name == 'n' and op_name == 'factorial':
                     # Factorial needs integer
-                    arg_values.append(int(float(arg_parts[i])))
+                    value = float(arg_parts[i])
+                    if not value.is_integer():
+                        print(f"Error: Invalid argument '{arg_parts[i]}' for {arg_name}. Expected an integer.")
+                        return None
+                    arg_values.append(int(value))
                 else:
                     arg_values.append(float(arg_parts[i]))
             except ValueError:
