@@ -1,29 +1,27 @@
-from pathlib import Path
-import sys
-
-# Ensure the project root is on sys.path for imports
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-
 from utils.history import HistoryManager
 
 
-def test_history_limit_discards_oldest_entry():
-    history = HistoryManager(max_entries=2)
-    history.add_entry("1+1", 2)
-    history.add_entry("2+2", 4)
-    history.add_entry("3+3", 6)
+def test_history_add_get_len_and_clear():
+    h = HistoryManager(max_entries=3)
 
-    assert len(history) == 2
-    assert history.get_entry(0)["command"] == "3+3"
-    assert history.get_entry(1)["command"] == "2+2"
-    assert all(entry["command"] != "1+1" for entry in history.get_all_entries())
+    assert len(h) == 0
 
+    h.add_entry("add 1 2", 3)
+    h.add_entry("multiply 2 5", 10)
+    h.add_entry("sqrt 16", 4)
 
-def test_clear_empties_history():
-    history = HistoryManager()
-    history.add_entry("1+1", 2)
-    history.add_entry("2+2", 4)
-    history.clear()
+    assert len(h) == 3
+    # Most recent first
+    assert h.get_entry(0)["command"] == "sqrt 16"
+    assert h.get_entry(1)["result"] == 10
 
-    assert len(history) == 0
-    assert history.get_all_entries() == []
+    # Adding beyond max trims oldest
+    h.add_entry("abs -4", 4)
+    assert len(h) == 3
+    # Oldest ("add 1 2") should be gone
+    commands = [e["command"] for e in h.get_all_entries()]
+    assert "add 1 2" not in commands
+
+    h.clear()
+    assert len(h) == 0
+    assert h.get_all_entries() == []
