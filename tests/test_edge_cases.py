@@ -4,6 +4,12 @@ from core.plugin_manager import PluginManager
 
 
 def _pm():
+    """
+    Create a PluginManager, run plugin discovery, and return the configured manager.
+    
+    Returns:
+        PluginManager: An instance with discover_plugins() already executed.
+    """
     pm = PluginManager()
     pm.discover_plugins()
     return pm

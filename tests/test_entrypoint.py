@@ -4,6 +4,19 @@ from pathlib import Path
 
 
 def load_math_cli_module():
+    """
+    Load and return the math_cli.py module located in the repository root.
+    
+    Resolves this file's grandparent directory, builds the path to "math_cli.py",
+    creates an import spec and module object, executes the module to populate it,
+    and returns the module object.
+    
+    Returns:
+        types.ModuleType: The loaded math_cli module.
+    
+    Raises:
+        AssertionError: If an import spec or its loader could not be created.
+    """
     root = Path(__file__).resolve().parents[1]
     path = root / "math_cli.py"
     spec = util.spec_from_file_location("_math_cli_module", path)
@@ -14,6 +27,17 @@ def load_math_cli_module():
 
 
 def run_cli(argv):
+    """
+    Run the math CLI's main() with a temporary argv and return its result.
+    
+    This loads the project's math_cli module, replaces sys.argv with the provided list of arguments for the duration of the call to the module's main(), and restores the original sys.argv afterwards.
+    
+    Parameters:
+        argv (list[str]): Argument vector to present to the CLI (e.g., ["math_cli.py", "add", "2", "3"]).
+    
+    Returns:
+        The value returned by math_cli.main(), typically an integer exit code.
+    """
     cli = load_math_cli_module()
     sys_argv_backup = sys.argv
     try:
