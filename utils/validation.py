@@ -11,17 +11,19 @@ class ValidationError(ValueError):
 
 def validate_number(value: Any, name: str = "number") -> float:
     """
-    Validate and convert a value to a number.
+    Convert input to a float and enforce numeric validity constraints.
+    
+    Attempts to cast `value` to float and ensures it is not NaN, not infinite, and its absolute value does not exceed 1e15. The `name` is used in error messages to identify the parameter.
     
     Args:
-        value: The value to validate
-        name: The name of the parameter for error messages
-        
+        value: The value to validate and convert to float.
+        name (str): Parameter name used in error messages (default: "number").
+    
     Returns:
-        float: The validated number
-        
+        float: The validated numeric value.
+    
     Raises:
-        ValidationError: If the value is invalid
+        ValidationError: If `value` cannot be converted to a float, is NaN, is infinite, or has absolute value > 1e15.
     """
     try:
         num = float(value)
@@ -44,17 +46,19 @@ def validate_number(value: Any, name: str = "number") -> float:
 
 def validate_integer(value: Any, name: str = "integer") -> int:
     """
-    Validate and convert a value to an integer.
+    Validate and convert an input to a whole integer.
     
-    Args:
-        value: The value to validate
-        name: The name of the parameter for error messages
-        
+    Attempts to coerce `value` to a float, rejects NaN or infinite values, requires the numeric value to be an integer (no fractional part), and enforces an absolute magnitude limit (<= 1e10).
+    
+    Parameters:
+        value: Input to validate and convert to int.
+        name: Optional parameter name used in generated error messages.
+    
     Returns:
-        int: The validated integer
-        
+        int: The validated integer.
+    
     Raises:
-        ValidationError: If the value is invalid
+        ValidationError: If `value` is not numeric, is NaN/Infinity, is not a whole number, or exceeds the allowed magnitude.
     """
     try:
         num = float(value)
@@ -84,17 +88,19 @@ def validate_integer(value: Any, name: str = "integer") -> int:
 
 def validate_positive_number(value: Any, name: str = "number") -> float:
     """
-    Validate and convert a value to a positive number.
+    Validate and return a strictly positive float.
     
-    Args:
-        value: The value to validate
-        name: The name of the parameter for error messages
-        
+    Delegates numeric parsing/validation to `validate_number` and ensures the result is > 0.
+    
+    Parameters:
+        value (Any): Input to validate and convert to a float.
+        name (str): Parameter name used in error messages (defaults to "number").
+    
     Returns:
-        float: The validated positive number
-        
+        float: The validated positive number (> 0).
+    
     Raises:
-        ValidationError: If the value is invalid or not positive
+        ValidationError: If the input is not a valid number or is not strictly positive.
     """
     num = validate_number(value, name)
     
@@ -128,17 +134,16 @@ def validate_non_negative_number(value: Any, name: str = "number") -> float:
 
 def validate_angle(value: Any, name: str = "angle") -> float:
     """
-    Validate an angle value (in radians).
+    Validate an angle in radians and return it as a float.
     
-    Args:
-        value: The value to validate
-        name: The name of the parameter for error messages
-        
+    Uses validate_number to convert and validate the input, then enforces a practical bound (absolute value <= 1e6 radians).
+    The optional `name` is used in error messages.
+    
     Returns:
-        float: The validated angle
-        
+        The validated angle as a float.
+    
     Raises:
-        ValidationError: If the value is invalid
+        ValidationError: If conversion/validation fails or the angle's absolute value exceeds 1e6.
     """
     num = validate_number(value, name)
     

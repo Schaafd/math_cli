@@ -57,7 +57,11 @@ class TestOperation(MathOperation):
             assert result == 10
 
     def test_malformed_plugin_handling(self):
-        """Test that malformed plugins are handled gracefully."""
+        """
+        Verify that a malformed plugin file is ignored without raising an exception and does not appear in the discovered operations.
+        
+        Creates a temporary plugin file containing invalid Python syntax, registers its directory with PluginManager, runs discovery, and asserts that discovery completes (no exception) and that no operation named "malformed" is present in the manager's operations metadata.
+        """
         pm = PluginManager()
         
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -80,7 +84,13 @@ invalid syntax here
             assert "malformed" not in operations
 
     def test_nonexistent_plugin_directory(self):
-        """Test handling of non-existent plugin directories."""
+        """
+        Verify that adding a non-existent plugin directory is handled gracefully.
+        
+        This test ensures add_plugin_directory followed by discover_plugins does not raise
+        an exception when the path does not exist, and that built-in plugins remain
+        available (get_operations_metadata returns a non-empty collection).
+        """
         pm = PluginManager()
         
         # Should not raise an exception
@@ -92,7 +102,15 @@ invalid syntax here
         assert len(operations) > 0
 
     def test_plugin_with_invalid_operation_class(self):
-        """Test handling of plugins with invalid operation classes."""
+        """
+        Verify that when a plugin module defines both valid and invalid operation classes, only the valid operation classes are registered.
+        
+        This test creates a temporary plugin file containing:
+        - an invalid class that does not implement the required operation attributes/methods, and
+        - a valid MathOperation subclass with the name "valid_op".
+        
+        It adds the directory to the PluginManager, runs discovery, and asserts that "valid_op" appears in the discovered operations while the invalid class name is not present.
+        """
         pm = PluginManager()
         
         with tempfile.TemporaryDirectory() as temp_dir:
