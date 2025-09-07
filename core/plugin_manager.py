@@ -48,11 +48,11 @@ class PluginManager:
 
     def _load_plugins_from_directory(self, plugin_dir: str) -> None:
         """Load plugins from a directory using secure importlib mechanisms."""
-        try:
-            for finder, name, ispkg in pkgutil.iter_modules([plugin_dir]):
-                if ispkg:
-                    continue  # Skip packages, only load modules
-                
+        for finder, name, ispkg in pkgutil.iter_modules([plugin_dir]):
+            if ispkg:
+                continue  # Skip packages, only load modules
+            
+            try:
                 # Use importlib.util to safely load modules without modifying sys.path
                 module_path = os.path.join(plugin_dir, f"{name}.py")
                 if os.path.exists(module_path):
@@ -66,8 +66,9 @@ class PluginManager:
                         logger.error(f"Failed to create spec for plugin: {name}")
                 else:
                     logger.warning(f"Plugin file not found: {module_path}")
-        except Exception as e:
-            logger.error(f"Error loading plugins from directory {plugin_dir}: {e}")
+            except Exception as e:
+                logger.error(f"Error loading plugin '{name}' from directory {plugin_dir}: {e}")
+                # Continue to next plugin instead of stopping the entire loading process
 
     def _load_plugins_from_module(self, module_name: str) -> None:
         """Load plugins from a specific module."""
