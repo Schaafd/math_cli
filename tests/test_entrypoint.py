@@ -17,6 +17,7 @@ def load_math_cli_module():
     Raises:
         AssertionError: If an import spec or its loader could not be created.
     """
+
     root = Path(__file__).resolve().parents[1]
     path = root / "math_cli.py"
     spec = util.spec_from_file_location("_math_cli_module", path)
