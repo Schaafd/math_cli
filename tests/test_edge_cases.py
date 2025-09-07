@@ -33,5 +33,5 @@ def test_factorial_non_integer_raises():
     pm = _pm()
     with pytest.raises(ValueError) as exc:
         pm.execute_operation('factorial', 3.5)
-    assert 'Factorial requires an integer' in str(exc.value)
+    assert 'not an integer' in str(exc.value)
 

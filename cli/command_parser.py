@@ -1,7 +1,7 @@
 import argparse
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
-def create_argument_parser(operations_metadata: Dict) -> argparse.ArgumentParser:
+def create_argument_parser(operations_metadata: Dict[str, Dict[str, Any]]) -> argparse.ArgumentParser:
     """Create and configure argument parser based on registered operations."""
     parser = argparse.ArgumentParser(description='Perform mathematical operations')
     subparsers = parser.add_subparsers(dest='operation', help='Operation to perform')
@@ -23,7 +23,7 @@ def create_argument_parser(operations_metadata: Dict) -> argparse.ArgumentParser
 
     return parser
 
-def parse_and_validate_args(args_namespace: Any, operations_metadata: Dict) -> Dict:
+def parse_and_validate_args(args_namespace: Any, operations_metadata: Dict[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """Parse and validate command line arguments."""
     if args_namespace.operation:
         operation = args_namespace.operation

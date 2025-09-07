@@ -1,4 +1,7 @@
-def format_plugin_list(operations_metadata):
+from typing import Dict, Any
+
+
+def format_plugin_list(operations_metadata: Dict[str, Dict[str, Any]]) -> str:
     """Format the list of available operations for display."""
     if not operations_metadata:
         return "No operations available."

@@ -1,11 +1,16 @@
 import importlib
+import importlib.util
 import os
 import pkgutil
 import inspect
 import sys
+import logging
 from pathlib import Path
-from typing import Dict, List, Type
+from typing import Dict, List, Type, Optional, Any
 from core.base_operations import MathOperation
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 class PluginManager:
     """Manages math operation plugins."""
@@ -28,9 +33,9 @@ class PluginManager:
         """Add a directory to search for plugins."""
         if directory not in self.plugin_dirs and os.path.isdir(directory):
             self.plugin_dirs.append(directory)
-            # Add to Python path so plugins can be imported
-            if directory not in sys.path:
-                sys.path.insert(0, directory)
+            logger.info(f"Added plugin directory: {directory}")
+        elif not os.path.isdir(directory):
+            logger.warning(f"Plugin directory does not exist: {directory}")
 
     def discover_plugins(self) -> None:
         """Discover and load plugins from plugin directories."""
@@ -39,12 +44,30 @@ class PluginManager:
 
         # Then load from additional plugin directories
         for plugin_dir in self.plugin_dirs:
+            self._load_plugins_from_directory(plugin_dir)
+
+    def _load_plugins_from_directory(self, plugin_dir: str) -> None:
+        """Load plugins from a directory using secure importlib mechanisms."""
+        try:
             for finder, name, ispkg in pkgutil.iter_modules([plugin_dir]):
-                try:
-                    module = importlib.import_module(name)
-                    self._register_operations_from_module(module)
-                except ImportError as e:
-                    print(f"Error importing plugin {name}: {e}")
+                if ispkg:
+                    continue  # Skip packages, only load modules
+                
+                # Use importlib.util to safely load modules without modifying sys.path
+                module_path = os.path.join(plugin_dir, f"{name}.py")
+                if os.path.exists(module_path):
+                    spec = importlib.util.spec_from_file_location(f"plugin_{name}", module_path)
+                    if spec and spec.loader:
+                        module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(module)
+                        self._register_operations_from_module(module)
+                        logger.info(f"Successfully loaded plugin: {name}")
+                    else:
+                        logger.error(f"Failed to create spec for plugin: {name}")
+                else:
+                    logger.warning(f"Plugin file not found: {module_path}")
+        except Exception as e:
+            logger.error(f"Error loading plugins from directory {plugin_dir}: {e}")
 
     def _load_plugins_from_module(self, module_name: str) -> None:
         """Load plugins from a specific module."""
@@ -59,10 +82,11 @@ class PluginManager:
                     try:
                         submodule = importlib.import_module(submodule_name)
                         self._register_operations_from_module(submodule)
+                        logger.info(f"Successfully loaded built-in plugin: {submodule_name}")
                     except ImportError as e:
-                        print(f"Error importing {submodule_name}: {e}")
+                        logger.error(f"Error importing {submodule_name}: {e}")
         except ImportError as e:
-            print(f"Error importing {module_name}: {e}")
+            logger.error(f"Error importing {module_name}: {e}")
 
     def _register_operations_from_module(self, module) -> None:
         """Register all MathOperation subclasses from a module."""
@@ -71,14 +95,15 @@ class PluginManager:
                     and obj is not MathOperation and hasattr(obj, 'name')):
                 try:
                     self.register_operation(obj)
+                    logger.debug(f"Registered operation: {obj.name}")
                 except (TypeError, ValueError) as e:
-                    print(f"Error registering operation from {module.__name__}: {e}")
+                    logger.error(f"Error registering operation from {module.__name__}: {e}")
 
-    def get_operations_metadata(self) -> Dict:
+    def get_operations_metadata(self) -> Dict[str, Dict[str, Any]]:
         """Return metadata for all registered operations."""
         return {name: op.get_metadata() for name, op in self.operations.items()}
 
-    def execute_operation(self, operation_name: str, *args, **kwargs):
+    def execute_operation(self, operation_name: str, *args: Any, **kwargs: Any) -> Any:
         """Execute a registered operation."""
         if operation_name not in self.operations:
             raise ValueError(f"Unknown operation: {operation_name}")
