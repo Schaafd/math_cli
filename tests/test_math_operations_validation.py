@@ -10,7 +10,11 @@ class TestMathOperationsValidation:
     """Test cases for math operations with input validation."""
 
     def setup_method(self):
-        """Set up plugin manager for each test."""
+        """
+        Prepare a PluginManager and discover available plugins before each test.
+        
+        This initializes self.pm with a new PluginManager instance and runs plugin discovery so tests have access to the registered math operation plugins.
+        """
         self.pm = PluginManager()
         self.pm.discover_plugins()
 

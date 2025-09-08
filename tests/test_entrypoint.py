@@ -5,17 +5,16 @@ from pathlib import Path
 
 def load_math_cli_module():
     """
-    Load and return the math_cli.py module located in the repository root.
+    Load and return the math_cli.py module from the repository root.
     
-    Resolves this file's grandparent directory, builds the path to "math_cli.py",
-    creates an import spec and module object, executes the module to populate it,
-    and returns the module object.
+    This imports the file named "math_cli.py" located in the repository root (the grandparent directory of this file)
+    as a module and returns the resulting ModuleType.
     
     Returns:
         types.ModuleType: The loaded math_cli module.
     
     Raises:
-        AssertionError: If an import spec or its loader could not be created.
+        AssertionError: If an import spec or its loader cannot be created.
     """
 
     root = Path(__file__).resolve().parents[1]
