@@ -25,4 +25,3 @@ def test_history_add_get_len_and_clear():
     h.clear()
     assert len(h) == 0
     assert h.get_all_entries() == []
-
