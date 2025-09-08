@@ -24,8 +24,8 @@ A modular command-line calculator with plugin support for mathematical operation
 Clone the repository and install the package:
 
 ```bash
-git clone https://github.com/yourusername/math-cli.git
-cd math-cli
+git clone https://github.com/schaafd/math_cli.git
+cd math_cli
 pip install -e .
 ```
 
