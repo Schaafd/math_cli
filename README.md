@@ -29,8 +29,8 @@ Math CLI requires **Python 3.8+** and `pip`. It relies only on the Python standa
 Clone the repository and install the package:
 
 ```bash
-git clone https://github.com/math-cli/math-cli.git
-cd math-cli
+git clone https://github.com/schaafd/math_cli.git
+cd math_cli
 pip install -e .
 ```
 
