@@ -18,13 +18,21 @@ def main():
     if plugin_dir.exists():
         plugin_manager.add_plugin_directory(str(plugin_dir))
 
-    # Parse command line arguments
-    parser = create_argument_parser({})  # Empty initially, will be updated
-    args, unknown = parser.parse_known_args()
+    # First, check for global options that don't require operation parsing
+    # Create a simple parser for global options only
+    global_parser = create_global_argument_parser()
+
+    # If no arguments provided, show help and exit
+    if len(sys.argv) == 1:
+        global_parser.print_help()
+        return 0
+
+    # Parse only known global arguments first
+    global_args, remaining_args = global_parser.parse_known_args()
 
     # Add any user-specified plugin directories
-    if args.plugin_dir:
-        for directory in args.plugin_dir:
+    if global_args.plugin_dir:
+        for directory in global_args.plugin_dir:
             plugin_manager.add_plugin_directory(directory)
 
     # Discover plugins from all registered directories
@@ -38,23 +46,25 @@ def main():
         print("Error: No math operations found.")
         return 1
 
-    # Now that we have the operations, recreate the parser with complete info
-    parser = create_argument_parser(operations_metadata)
-    args = parser.parse_args()
-
     # Handle list-plugins option
-    if args.list_plugins:
+    if global_args.list_plugins:
         print(format_plugin_list(operations_metadata))
         return 0
 
     # Handle interactive mode
-    if args.interactive:
+    if global_args.interactive:
         run_interactive_mode(plugin_manager, operations_metadata)
         return 0
 
-    # Handle operation command
-    if args.operation:
-        try:
+    # If we get here, we should have an operation command
+    # Create the full parser with all operations
+    parser = create_argument_parser(operations_metadata)
+
+    try:
+        args = parser.parse_args()
+
+        # Handle operation command
+        if args.operation:
             parsed_args = parse_and_validate_args(args, operations_metadata)
             if parsed_args:
                 result = plugin_manager.execute_operation(
@@ -63,14 +73,30 @@ def main():
                 )
                 print(f"Result: {result}")
                 return 0
-        except ValueError as e:
-            print(f"Error: {e}")
-            return 1
-    else:
-        # No operation specified, show help
-        parser.print_help()
+        else:
+            # No operation specified, show help
+            parser.print_help()
+    except SystemExit as e:
+        # argparse calls sys.exit on error, catch it to show our help
+        if remaining_args:
+            print(f"Error: Unknown operation '{remaining_args[0]}'")
+            print("\nUse --list-plugins to see available operations")
+        return e.code
 
     return 0
+
+def create_global_argument_parser():
+    """Create argument parser for global options only."""
+    import argparse
+    parser = argparse.ArgumentParser(description='Perform mathematical operations', add_help=False)
+
+    # Add global options
+    parser.add_argument('--interactive', '-i', action='store_true', help='Run in interactive mode')
+    parser.add_argument('--plugin-dir', action='append', help='Directory containing additional plugins')
+    parser.add_argument('--list-plugins', action='store_true', help='List available operation plugins')
+    parser.add_argument('--help', '-h', action='store_true', help='Show help message')
+
+    return parser
 
 if __name__ == "__main__":
     sys.exit(main())

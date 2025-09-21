@@ -7,6 +7,7 @@ A modular command-line calculator with plugin support for mathematical operation
 - [Installation](#installation)
 - [Basic Usage](#basic-usage)
 - [Available Operations](#available-operations)
+- [Core Plugins](#core-plugins)
 - [Interactive Mode](#interactive-mode)
   - [History Feature](#history-feature)
   - [Previous Result Reference](#previous-result-reference)
@@ -57,22 +58,60 @@ To list all available operations:
 python math_cli.py --list-plugins
 ```
 
-Built-in operations include:
+Math CLI includes **142+ mathematical operations** across 8 specialized domains:
 
-- `add` - Add two numbers
-- `subtract` - Subtract the second number from the first
-- `multiply` - Multiply two numbers
-- `divide` - Divide the first number by the second
-- `power` - Raise a base to an exponent
-- `sqrt` - Calculate the square root
-- `factorial` - Calculate the factorial
-- `log` - Calculate logarithm with optional base
-- `sin` - Calculate sine (in radians)
-- `cos` - Calculate cosine (in radians)
-- `tan` - Calculate tangent (in radians)
-- `to_radians` - Convert degrees to radians
-- `to_degrees` - Convert radians to degrees
-- `abs` - Calculate absolute value
+**Core Mathematical Operations:**
+- `add`, `subtract`, `multiply`, `divide` - Basic arithmetic
+- `power`, `sqrt`, `factorial` - Advanced arithmetic
+- `sin`, `cos`, `tan` - Trigonometric functions
+- `log`, `abs` - Logarithmic and absolute functions
+
+**Extended Operations:** (via core plugins)
+- **Statistical Functions:** `mean`, `median`, `std_dev`, `max`, `min` (variadic)
+- **Complex Numbers:** `complex_add`, `complex_multiply`, `complex_magnitude`
+- **Geometric Calculations:** `area_circle`, `volume_sphere`, `distance`
+- **Unit Conversions:** `celsius_to_fahrenheit`, `miles_to_kilometers`
+- **Combinatorics:** `combinations`, `fibonacci`, `is_prime`
+- **Constants:** `pi`, `e`, `golden_ratio`, `speed_of_light`
+- **Advanced Math:** `ceil`, `floor`, `gcd`, `lcm`
+- **Extended Trigonometry:** `asin`, `sinh`, `atan2`
+
+## Core Plugins
+
+Math CLI includes 8 comprehensive plugin modules that extend functionality beyond basic arithmetic, providing **110+ additional mathematical operations** across various domains:
+
+- **[Extended Trigonometric Functions](docs/Core_Plugins.md#extended-trigonometric-functions)** - Inverse trig and hyperbolic functions
+- **[Statistical Functions](docs/Core_Plugins.md#statistical-functions)** - Mean, median, standard deviation (15 variadic operations)
+- **[Complex Number Operations](docs/Core_Plugins.md#complex-number-operations)** - Complete complex arithmetic and conversions
+- **[Geometric Functions](docs/Core_Plugins.md#geometric-functions)** - Areas, volumes, distances, and shape calculations  
+- **[Unit Conversions](docs/Core_Plugins.md#unit-conversions)** - Temperature, length, weight, speed, energy conversions
+- **[Combinatorics & Number Theory](docs/Core_Plugins.md#combinatorics--number-theory)** - Fibonacci, primes, combinations
+- **[Mathematical Constants](docs/Core_Plugins.md#mathematical-constants)** - π, e, physical constants
+- **[Advanced Mathematical Functions](docs/Core_Plugins.md#advanced-mathematical-functions)** - GCD, LCM, rounding, modulo
+
+### Key Features:
+- **Variadic Operations:** 15 functions accept multiple arguments (e.g., `mean 10 20 30 40 50`)
+- **Template-Based:** All plugins follow consistent architecture
+- **Error Handling:** Comprehensive input validation and clear error messages
+- **Chain Compatible:** Works seamlessly with chain operations
+
+### Quick Examples:
+```bash
+# Statistical analysis
+python math_cli.py mean 85 92 78 96 88 91 87 94 89 93
+python math_cli.py std_dev 10 12 14 16 18
+
+# Complex numbers  
+python math_cli.py complex_add 3 4 2 -1
+
+# Unit conversions
+python math_cli.py celsius_to_fahrenheit 25
+
+# Geometric calculations
+python math_cli.py area_circle 5
+```
+
+**📖 For complete documentation of all core plugins, see: [Core Plugins Guide](docs/Core_Plugins.md)**
 
 ## Interactive Mode
 

@@ -3,6 +3,7 @@ class MathOperation:
     name = None
     args = []
     help = "Base operation"
+    variadic = False  # Set to True for operations that accept variable number of arguments
 
     @classmethod
     def execute(cls, *args, **kwargs):
@@ -15,5 +16,6 @@ class MathOperation:
         return {
             'name': cls.name,
             'args': cls.args,
-            'help': cls.help
+            'help': cls.help,
+            'variadic': cls.variadic
         }

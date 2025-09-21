@@ -96,22 +96,42 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
     def process_args(op_name, arg_parts):
         """Process and validate command arguments."""
         required_args = operations_metadata[op_name]['args']
-        if len(arg_parts) < len(required_args):
-            print(f"Error: Not enough arguments. {op_name} requires {len(required_args)} arguments: {', '.join(required_args)}")
-            return None
+        is_variadic = operations_metadata[op_name].get('variadic', False)
+
+        # For variadic functions, we need at least one argument (unless explicitly no args required)
+        if is_variadic:
+            if len(required_args) > 0 and len(arg_parts) == 0:
+                print(f"Error: {op_name} requires at least one argument.")
+                return None
+        else:
+            # For non-variadic functions, check exact argument count
+            if len(arg_parts) < len(required_args):
+                print(f"Error: Not enough arguments. {op_name} requires {len(required_args)} arguments: {', '.join(required_args)}")
+                return None
 
         # Parse arguments
         arg_values = []
-        for i, arg_name in enumerate(required_args):
-            try:
-                if arg_name == 'n' and op_name == 'factorial':
-                    # Factorial needs integer
-                    arg_values.append(int(float(arg_parts[i])))
-                else:
-                    arg_values.append(float(arg_parts[i]))
-            except ValueError:
-                print(f"Error: Invalid argument '{arg_parts[i]}' for {arg_name}. Expected a number.")
-                return None
+
+        if is_variadic:
+            # For variadic functions, parse all provided arguments
+            for i, arg_part in enumerate(arg_parts):
+                try:
+                    arg_values.append(float(arg_part))
+                except ValueError:
+                    print(f"Error: Invalid argument '{arg_part}' at position {i+1}. Expected a number.")
+                    return None
+        else:
+            # For fixed-argument functions, parse only the required number
+            for i, arg_name in enumerate(required_args):
+                try:
+                    if arg_name == 'n' and op_name == 'factorial':
+                        # Factorial needs integer
+                        arg_values.append(int(float(arg_parts[i])))
+                    else:
+                        arg_values.append(float(arg_parts[i]))
+                except ValueError:
+                    print(f"Error: Invalid argument '{arg_parts[i]}' for {arg_name}. Expected a number.")
+                    return None
 
         return arg_values
 
@@ -179,7 +199,7 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             # Process arguments
             arg_values = process_args(op_name, arg_parts)
 
-            if not arg_values:
+            if arg_values is None:
                 print(f"Error in chain segment {i+1}: Invalid arguments")
                 last_result = temp_result  # Restore original last_result
                 return
@@ -248,7 +268,7 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
 
             # Handle regular operations
             arg_values = process_args(op_name, arg_parts)
-            if not arg_values:
+            if arg_values is None:
                 continue
 
             try:

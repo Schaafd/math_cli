@@ -5,7 +5,11 @@ def format_plugin_list(operations_metadata):
 
     output = "Available operations:\n"
     for name, metadata in sorted(operations_metadata.items()):
-        args = ", ".join(metadata['args'])
+        is_variadic = metadata.get('variadic', False)
+        if is_variadic:
+            args = f"{', '.join(metadata['args'])} (accepts multiple values)"
+        else:
+            args = ", ".join(metadata['args'])
         output += f"  {name} - {metadata['help']}\n"
         output += f"    Arguments: {args}\n"
 
