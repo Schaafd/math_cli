@@ -1,0 +1,4 @@
+[run]
+omit =
+    plugins/*
+    cli/interactive_mode.py

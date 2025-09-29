@@ -40,6 +40,8 @@ class PluginManager:
         # Then load from additional plugin directories
         for plugin_dir in self.plugin_dirs:
             for finder, name, ispkg in pkgutil.iter_modules([plugin_dir]):
+                if name == "plugin_template":
+                    continue
                 try:
                     module = importlib.import_module(name)
                     self._register_operations_from_module(module)
@@ -51,6 +53,8 @@ class PluginManager:
         try:
             module = importlib.import_module(module_name)
             for _, submodule_name, ispkg in pkgutil.iter_modules(module.__path__, module.__name__ + '.'):
+                if submodule_name.endswith('.plugin_template'):
+                    continue
                 if not ispkg:  # Only process modules, not packages
                     try:
                         submodule = importlib.import_module(submodule_name)

@@ -64,7 +64,7 @@ Math CLI includes **142+ mathematical operations** across 8 specialized domains:
 - `add`, `subtract`, `multiply`, `divide` - Basic arithmetic
 - `power`, `sqrt`, `factorial` - Advanced arithmetic
 - `sin`, `cos`, `tan` - Trigonometric functions
-- `log`, `abs` - Logarithmic and absolute functions
+- `log`, `abs` - Logarithmic (explicit base argument required) and absolute functions
 
 **Extended Operations:** (via core plugins)
 - **Statistical Functions:** `mean`, `median`, `std_dev`, `max`, `min` (variadic)
