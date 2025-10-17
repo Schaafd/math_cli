@@ -53,7 +53,9 @@ def main():
 
     # Handle interactive mode
     if global_args.interactive:
-        run_interactive_mode(plugin_manager, operations_metadata)
+        enable_colors = not global_args.no_color
+        enable_animations = not global_args.no_animations
+        run_interactive_mode(plugin_manager, operations_metadata, enable_colors, enable_animations)
         return 0
 
     # If we get here, we should have an operation command
@@ -94,6 +96,8 @@ def create_global_argument_parser():
     parser.add_argument('--interactive', '-i', action='store_true', help='Run in interactive mode')
     parser.add_argument('--plugin-dir', action='append', help='Directory containing additional plugins')
     parser.add_argument('--list-plugins', action='store_true', help='List available operation plugins')
+    parser.add_argument('--no-color', action='store_true', help='Disable colored output (accessibility)')
+    parser.add_argument('--no-animations', action='store_true', help='Disable animations (accessibility)')
     parser.add_argument('--help', '-h', action='store_true', help='Show help message')
 
     return parser

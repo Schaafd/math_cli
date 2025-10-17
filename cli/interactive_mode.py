@@ -1,10 +1,32 @@
 from typing import Dict, Any
 from utils.history import HistoryManager
+from utils.visual import (
+    print_welcome_banner,
+    print_result,
+    print_error,
+    print_info,
+    print_success,
+    print_tip,
+    print_operations_table,
+    print_history_table,
+    print_chain_step,
+    print_final_result,
+    print_help_panel,
+    console,
+    preferences
+)
 
-def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
-    """Run the CLI in interactive mode."""
-    print("Mathematical Operations CLI - Interactive Mode")
-    print("Type 'exit' or 'quit' to exit, 'help' for available commands")
+def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_colors=True, enable_animations=True) -> None:
+    """Run the CLI in interactive mode with rich visual enhancements."""
+    # Set visual preferences
+    if not enable_colors:
+        preferences.disable_colors()
+    if not enable_animations:
+        preferences.disable_animations()
+
+    # Display welcome banner
+    print_welcome_banner()
+    print_info("Type 'exit' or 'quit' to exit, 'help' for available commands")
 
     # Initialize history manager
     history = HistoryManager()
@@ -14,28 +36,35 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
 
     def show_help():
         """Display help information for all operations."""
-        print("\nAvailable operations:")
-        for op_name, op_info in operations_metadata.items():
-            args_str = ' '.join(op_info['args'])
-            print(f"  {op_name} {args_str} - {op_info['help']}")
+        # Show operations table
+        print_operations_table(operations_metadata)
 
-        # Add history command help
-        print("\nHistory commands:")
-        print("  history - Show calculation history")
-        print("  history <n> - Show the nth most recent calculation")
-        print("  history clear - Clear calculation history")
-        print("  !<n> - Re-run the nth most recent calculation")
+        # Show history commands help
+        history_help = """
+**History Commands:**
+- `history` - Show calculation history
+- `history <n>` - Show the nth most recent calculation
+- `history clear` - Clear calculation history
+- `!<n>` - Re-run the nth most recent calculation
+        """
+        print_help_panel("History Commands", history_help)
 
-        # Add previous result reference help
-        print("\nPrevious result reference:")
-        print("  $ or ans - Use the result of the previous calculation")
-        print("  Example: add $ 5 (adds 5 to the previous result)")
+        # Show previous result reference help
+        result_ref_help = """
+**Previous Result Reference:**
+- `$` or `ans` - Use the result of the previous calculation
+- Example: `add $ 5` (adds 5 to the previous result)
+        """
+        print_help_panel("Previous Result Reference", result_ref_help)
 
-        # Add chain calculation help
-        print("\nChained calculations:")
-        print("  chain <operation1> <args1> | <operation2> <args2> | ...")
-        print("  Example: chain add 5 3 | multiply $ 2")
-        print("  The result of each operation becomes available as $ in the next one")
+        # Show chain calculation help
+        chain_help = """
+**Chained Calculations:**
+- Syntax: `chain <operation1> <args1> | <operation2> <args2> | ...`
+- Example: `chain add 5 3 | multiply $ 2`
+- The result of each operation becomes available as `$` in the next one
+        """
+        print_help_panel("Chained Calculations", chain_help)
 
     def parse_command(input_text, allow_chain=True, current_result=None):
         """Parse the user input command and arguments.
@@ -88,7 +117,10 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
 
         op_name = parts[0]
         if op_name not in operations_metadata:
-            print(f"Unknown operation: {op_name}")
+            # Find similar operations for suggestions
+            similar_ops = [op for op in operations_metadata.keys() if op.startswith(parts[0][:3])]
+            suggestion = f"Did you mean: {', '.join(similar_ops[:3])}?" if similar_ops else "Use 'help' to see available operations"
+            print_error(f"Unknown operation: {op_name}", suggestion)
             return None, None
 
         return op_name, parts[1:]
@@ -101,12 +133,14 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
         # For variadic functions, we need at least one argument (unless explicitly no args required)
         if is_variadic:
             if len(required_args) > 0 and len(arg_parts) == 0:
-                print(f"Error: {op_name} requires at least one argument.")
+                print_error(f"{op_name} requires at least one argument",
+                           f"Usage: {op_name} <number1> <number2> ...")
                 return None
         else:
             # For non-variadic functions, check exact argument count
             if len(arg_parts) < len(required_args):
-                print(f"Error: Not enough arguments. {op_name} requires {len(required_args)} arguments: {', '.join(required_args)}")
+                print_error(f"Not enough arguments for {op_name}",
+                           f"Expected {len(required_args)} arguments: {', '.join(required_args)}")
                 return None
 
         # Parse arguments
@@ -118,7 +152,8 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
                 try:
                     arg_values.append(float(arg_part))
                 except ValueError:
-                    print(f"Error: Invalid argument '{arg_part}' at position {i+1}. Expected a number.")
+                    print_error(f"Invalid argument '{arg_part}' at position {i+1}",
+                               "Expected a numeric value")
                     return None
         else:
             # For fixed-argument functions, parse only the required number
@@ -130,7 +165,8 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
                     else:
                         arg_values.append(float(arg_parts[i]))
                 except ValueError:
-                    print(f"Error: Invalid argument '{arg_parts[i]}' for {arg_name}. Expected a number.")
+                    print_error(f"Invalid argument '{arg_parts[i]}' for parameter '{arg_name}'",
+                               "Expected a numeric value")
                     return None
 
         return arg_values
@@ -140,28 +176,24 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
         if not args:
             # Display all history
             entries = history.get_all_entries()
-            if not entries:
-                print("History is empty")
-                return
-
-            print("\nCalculation History:")
-            for i, entry in enumerate(entries):
-                print(f"{i+1}: {entry['command']} = {entry['result']}")
+            print_history_table(entries)
         elif args[0] == "clear":
             # Clear history
             history.clear()
-            print("History cleared")
+            print_success("History cleared")
         else:
             # Show specific history entry
             try:
                 idx = int(args[0]) - 1  # Convert to 0-based index
                 entry = history.get_entry(idx)
                 if entry:
-                    print(f"{args[0]}: {entry['command']} = {entry['result']}")
+                    print_info(f"{args[0]}: {entry['command']} = {entry['result']}")
                 else:
-                    print(f"Error: History entry {args[0]} not found")
+                    print_error(f"History entry {args[0]} not found",
+                               f"Valid range: 1-{len(history.get_all_entries())}")
             except ValueError:
-                print(f"Error: Invalid history index: {args[0]}")
+                print_error(f"Invalid history index: {args[0]}",
+                           "Expected a numeric index")
 
     def handle_chain_command(chain_text):
         """Handle a chain of calculations."""
@@ -170,7 +202,8 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
         # Split the chain by the pipe symbol
         operations = chain_text.split('|')
         if not operations:
-            print("Error: No operations in chain")
+            print_error("No operations in chain",
+                       "Usage: chain <op1> <args> | <op2> <args> | ...")
             return
 
         chain_result = None
@@ -192,7 +225,8 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             )
 
             if not op_name:
-                print(f"Error in chain segment {i+1}: Invalid operation")
+                print_error(f"Invalid operation in chain segment {i+1}",
+                           f"Check the syntax of: {operation}")
                 last_result = temp_result  # Restore original last_result
                 return
 
@@ -200,7 +234,6 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
             arg_values = process_args(op_name, arg_parts)
 
             if arg_values is None:
-                print(f"Error in chain segment {i+1}: Invalid arguments")
                 last_result = temp_result  # Restore original last_result
                 return
 
@@ -209,17 +242,18 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
                 result = plugin_manager.execute_operation(op_name, *arg_values)
                 chain_result = result
 
-                # Show intermediate result
-                print(f"Step {i+1}: {operation} = {result}")
+                # Show intermediate result with visual formatting
+                print_chain_step(i+1, operation, result)
 
             except ValueError as e:
-                print(f"Error in chain segment {i+1}: {e}")
+                print_error(f"Error in chain segment {i+1}: {str(e)}",
+                           "Check your operation arguments")
                 last_result = temp_result  # Restore original last_result
                 return
 
         # Store the final result and add to history
         if chain_result is not None:
-            print(f"Final result: {chain_result}")
+            print_final_result(chain_result)
             history.add_entry(full_command, chain_result)
             # Update the session's last_result with the chain's final result
             last_result = chain_result
@@ -230,22 +264,25 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
 
         return None
 
-    # Show initial help message about features
-    print("\nTip: Use '$' or 'ans' to reference the previous result in calculations")
-    print("Tip: Use 'chain' to perform multiple calculations in sequence (e.g., chain add 5 3 | multiply $ 2)")
+    # Show initial tips about features
+    console.print()
+    print_tip("Use '$' or 'ans' to reference the previous result in calculations")
+    print_tip("Use 'chain' to perform multiple calculations in sequence")
+    print_tip("Type 'help' for a complete list of available commands")
 
     while True:
         try:
             # Show the previous result in the prompt if available
-            prompt = "\nEnter command"
             if last_result is not None:
-                prompt += f" (previous: {last_result})"
-            prompt += ": "
+                from utils.visual import format_number
+                prompt = f"\n❯ (prev: {format_number(last_result)}) " if preferences.colors_enabled else f"\nEnter command (previous: {last_result}): "
+            else:
+                prompt = "\n❯ " if preferences.colors_enabled else "\nEnter command: "
 
             user_input = input(prompt).strip()
 
             if user_input.lower() in ('exit', 'quit'):
-                print("Exiting interactive mode...")
+                print_success("Goodbye! Thanks for using Math CLI")
                 break
 
             if user_input.lower() == 'help':
@@ -273,7 +310,7 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
 
             try:
                 result = plugin_manager.execute_operation(op_name, *arg_values)
-                print(f"Result: {result}")
+                print_result(result)
 
                 # Store as the last result for reference
                 last_result = result
@@ -282,12 +319,13 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict) -> None:
                 history.add_entry(user_input, result)
 
             except ValueError as e:
-                print(f"Error: {e}")
+                print_error(str(e), "Please check your input and try again")
 
         except KeyboardInterrupt:
-            print("\nOperation interrupted.")
+            print_info("\nOperation interrupted")
         except EOFError:
-            print("\nExiting interactive mode...")
+            print_success("\nGoodbye! Thanks for using Math CLI")
             break
         except Exception as e:
-            print(f"Unexpected error: {e}")
+            print_error(f"Unexpected error: {str(e)}",
+                       "This might be a bug. Please report it if it persists")

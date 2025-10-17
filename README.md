@@ -27,8 +27,22 @@ Clone the repository and install the package:
 ```bash
 git clone https://github.com/yourusername/math-cli.git
 cd math-cli
+
+# Create a virtual environment (recommended)
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Or install in editable mode
 pip install -e .
 ```
+
+### Requirements
+
+- Python 3.8 or higher
+- rich >= 14.0.0 (for visual enhancements)
 
 ## Basic Usage
 
@@ -115,7 +129,7 @@ python math_cli.py area_circle 5
 
 ## Interactive Mode
 
-Run Math CLI in interactive mode to perform multiple calculations in succession:
+Run Math CLI in interactive mode to perform multiple calculations in succession with beautiful visual enhancements:
 
 ```bash
 python math_cli.py --interactive
@@ -123,24 +137,61 @@ python math_cli.py --interactive
 python math_cli.py -i
 ```
 
-In interactive mode:
+### Visual Enhancements (New in Phase 1!)
+
+Math CLI now features a **delightful interactive experience** with:
+
+- 🎨 **Colorful Output** - Syntax-highlighted commands and color-coded results
+- ✨ **Animated Banner** - Welcoming startup animation
+- ✓ **Success Indicators** - Visual feedback for completed calculations
+- 📊 **Rich History Display** - Beautifully formatted calculation history tables
+- 💡 **Helpful Tips** - Contextual guidance as you work
+- 🎯 **Smart Error Messages** - Clear, friendly error messages with suggestions
+- ⚡ **Chain Visualization** - Step-by-step display for chained calculations
+
+### Accessibility Options
+
+For users who prefer minimal visuals or have accessibility needs:
+
+```bash
+# Disable colored output
+python math_cli.py --interactive --no-color
+
+# Disable animations
+python math_cli.py --interactive --no-animations
+
+# Disable both
+python math_cli.py --interactive --no-color --no-animations
+```
+
+### Features in Interactive Mode
+
 - Type an operation followed by its arguments (e.g., `add 5 3`)
-- Type `help` to see available commands
+- Type `help` to see a beautifully formatted list of available commands
 - Type `exit` or `quit` to exit
+- Enjoy real-time visual feedback with every calculation
 
 Example interactive session:
 ```
-Mathematical Operations CLI - Interactive Mode
-Type 'exit' or 'quit' to exit, 'help' for available commands
+╔═══════════════════════════════════════════════════════════╗
+║     __  __       _   _        ____ _     ___              ║
+║    |  \/  | __ _| |_| |__    / ___| |   |_ _|             ║
+║    | |\/| |/ _` | __| '_ \  | |   | |    | |              ║
+║    | |  | | (_| | |_| | | | | |___| |___ | |              ║
+║    |_|  |_|\__,_|\__|_| |_|  \____|_____|___|             ║
+║         Interactive Mathematical Operations               ║
+╚═══════════════════════════════════════════════════════════╝
 
-Enter command: sqrt 16
-Result: 4.0
+💡 Tip: Use '$' or 'ans' to reference the previous result
 
-Enter command: power 2 10
-Result: 1024.0
+❯ sqrt 16
+Result: 4 ✓
 
-Enter command: exit
-Exiting interactive mode...
+❯ (prev: 4) power 2 10
+Result: 1,024 ✓
+
+❯ (prev: 1024) exit
+✓ Goodbye! Thanks for using Math CLI
 ```
 
 ### History Feature
@@ -309,7 +360,8 @@ class CylinderVolumeOperation(MathOperation):
 ## Command-Line Arguments
 
 ```
-usage: math_cli.py [-h] [--interactive] [--plugin-dir PLUGIN_DIR] [--list-plugins] ...
+usage: math_cli.py [-h] [--interactive] [--plugin-dir PLUGIN_DIR]
+                   [--list-plugins] [--no-color] [--no-animations] ...
 
 Perform mathematical operations
 
@@ -317,12 +369,22 @@ positional arguments:
   operation             Operation to perform
 
 options:
-  -h, --help            show this help message and exit
-  --interactive, -i     Run in interactive mode
+  -h, --help            Show this help message and exit
+  --interactive, -i     Run in interactive mode with visual enhancements
   --plugin-dir PLUGIN_DIR
                         Directory containing additional plugins
   --list-plugins        List available operation plugins
+  --no-color            Disable colored output (accessibility)
+  --no-animations       Disable animations (accessibility)
 ```
+
+### Accessibility Flags
+
+The `--no-color` and `--no-animations` flags ensure Math CLI is accessible to all users:
+
+- **`--no-color`**: Removes all color formatting, useful for screen readers and terminals without color support
+- **`--no-animations`**: Disables animated elements like the startup banner and loading spinners
+- Both flags can be combined for maximum compatibility
 
 ## Code Structure Diagrams
 

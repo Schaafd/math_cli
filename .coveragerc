@@ -2,3 +2,4 @@
 omit =
     plugins/*
     cli/interactive_mode.py
+    utils/visual.py

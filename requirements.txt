@@ -1,0 +1,9 @@
+# Math CLI Requirements
+# Install with: pip install -r requirements.txt
+
+# Visual enhancements and rich terminal formatting
+rich>=14.0.0
+
+# Testing dependencies
+pytest>=7.0.0
+pytest-cov>=4.0.0
