@@ -1,8 +1,11 @@
 # Math CLI Requirements
-# Install with: pip install -r requirements.txt
+# Install with: uv pip install -r requirements.txt
 
 # Visual enhancements and rich terminal formatting
 rich>=14.0.0
+
+# Interactive features and autocompletion (Phase 2)
+prompt_toolkit>=3.0.0
 
 # Testing dependencies
 pytest>=7.0.0

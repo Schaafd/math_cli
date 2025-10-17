@@ -45,6 +45,7 @@ pip install -e .
 
 - Python 3.8 or higher
 - rich >= 14.0.0 (for visual enhancements)
+- prompt_toolkit >= 3.0.0 (for autocompletion and interactive features)
 - uv (optional, but recommended for faster dependency installation)
 
 ## Basic Usage
@@ -140,9 +141,9 @@ python math_cli.py --interactive
 python math_cli.py -i
 ```
 
-### Visual Enhancements (New in Phase 1!)
+### Visual Enhancements (Phase 1)
 
-Math CLI now features a **delightful interactive experience** with:
+Math CLI features a **delightful interactive experience** with:
 
 - 🎨 **Colorful Output** - Syntax-highlighted commands and color-coded results
 - ✨ **Animated Banner** - Welcoming startup animation
@@ -151,6 +152,18 @@ Math CLI now features a **delightful interactive experience** with:
 - 💡 **Helpful Tips** - Contextual guidance as you work
 - 🎯 **Smart Error Messages** - Clear, friendly error messages with suggestions
 - ⚡ **Chain Visualization** - Step-by-step display for chained calculations
+
+### Interactive Features (Phase 2 - NEW!)
+
+Enhanced interactivity with intelligent assistance:
+
+- ⌨️ **Smart Autocompletion** - Press Tab to autocomplete operation names with parameter hints
+- 🔍 **Advanced Help System** - Use `help <operation>` for detailed documentation
+- 🎯 **Fuzzy Error Matching** - Get intelligent suggestions for typos (e.g., "squrt" → "sqrt")
+- 📚 **Searchable Operations** - Use `help search:trig` to find trigonometric functions
+- 📂 **Category Browsing** - Use `help category:statistics` to see all statistical operations
+- ⌨️ **Keyboard Shortcuts** - Ctrl+L to clear, Ctrl+D to exit, ↑↓ for history
+- 📊 **Bottom Toolbar** - See previous results and available shortcuts at a glance
 
 ### Accessibility Options
 

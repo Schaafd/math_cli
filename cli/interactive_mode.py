@@ -16,6 +16,23 @@ from utils.visual import (
     preferences
 )
 
+# Phase 2: Interactive features
+try:
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.history import InMemoryHistory
+    from prompt_toolkit.formatted_text import HTML
+    from cli.autocompletion import MathOperationCompleter, suggest_corrections
+    from cli.keybindings import create_key_bindings, get_bottom_toolbar_text
+    from cli.help_system import (
+        show_operation_help,
+        show_search_results,
+        show_category_operations,
+        show_quick_reference
+    )
+    PROMPT_TOOLKIT_AVAILABLE = True
+except ImportError:
+    PROMPT_TOOLKIT_AVAILABLE = False
+
 def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_colors=True, enable_animations=True) -> None:
     """Run the CLI in interactive mode with rich visual enhancements."""
     # Set visual preferences
@@ -117,9 +134,14 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
 
         op_name = parts[0]
         if op_name not in operations_metadata:
-            # Find similar operations for suggestions
-            similar_ops = [op for op in operations_metadata.keys() if op.startswith(parts[0][:3])]
-            suggestion = f"Did you mean: {', '.join(similar_ops[:3])}?" if similar_ops else "Use 'help' to see available operations"
+            # Use advanced fuzzy matching if available
+            if PROMPT_TOOLKIT_AVAILABLE:
+                suggestions = suggest_corrections(op_name, operations_metadata, max_suggestions=3)
+                suggestion = f"Did you mean: {', '.join(suggestions)}?" if suggestions else "Use 'help' to see available operations"
+            else:
+                # Fallback to simple prefix matching
+                similar_ops = [op for op in operations_metadata.keys() if op.startswith(parts[0][:3])]
+                suggestion = f"Did you mean: {', '.join(similar_ops[:3])}?" if similar_ops else "Use 'help' to see available operations"
             print_error(f"Unknown operation: {op_name}", suggestion)
             return None, None
 
@@ -268,25 +290,73 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
     console.print()
     print_tip("Use '$' or 'ans' to reference the previous result in calculations")
     print_tip("Use 'chain' to perform multiple calculations in sequence")
-    print_tip("Type 'help' for a complete list of available commands")
+
+    if PROMPT_TOOLKIT_AVAILABLE and preferences.colors_enabled:
+        print_tip("Press [Tab] for autocompletion, [Ctrl+L] to clear screen")
+        print_tip("Use 'help <operation>' for detailed help on any command")
+    else:
+        print_tip("Type 'help' for a complete list of available commands")
+
+    # Setup prompt_toolkit session if available
+    if PROMPT_TOOLKIT_AVAILABLE and preferences.colors_enabled:
+        session = PromptSession(
+            history=InMemoryHistory(),
+            completer=MathOperationCompleter(operations_metadata),
+            complete_while_typing=False,  # Only complete on Tab
+            key_bindings=create_key_bindings(history),
+            bottom_toolbar=lambda: get_bottom_toolbar_text(last_result, show_shortcuts=True)
+        )
+    else:
+        session = None
 
     while True:
         try:
-            # Show the previous result in the prompt if available
-            if last_result is not None:
-                from utils.visual import format_number
-                prompt = f"\n❯ (prev: {format_number(last_result)}) " if preferences.colors_enabled else f"\nEnter command (previous: {last_result}): "
-            else:
-                prompt = "\n❯ " if preferences.colors_enabled else "\nEnter command: "
+            # Get user input with prompt_toolkit or standard input
+            if session:
+                # Use prompt_toolkit for enhanced input
+                if last_result is not None:
+                    from utils.visual import format_number
+                    prompt_text = HTML(f'\n<ansigreen>❯</ansigreen> <dim>(prev: {format_number(last_result)})</dim> ')
+                else:
+                    prompt_text = HTML('\n<ansigreen>❯</ansigreen> ')
 
-            user_input = input(prompt).strip()
+                user_input = session.prompt(prompt_text).strip()
+            else:
+                # Fallback to standard input
+                if last_result is not None:
+                    from utils.visual import format_number
+                    prompt = f"\n❯ (prev: {format_number(last_result)}) " if preferences.colors_enabled else f"\nEnter command (previous: {last_result}): "
+                else:
+                    prompt = "\n❯ " if preferences.colors_enabled else "\nEnter command: "
+
+                user_input = input(prompt).strip()
 
             if user_input.lower() in ('exit', 'quit'):
                 print_success("Goodbye! Thanks for using Math CLI")
                 break
 
-            if user_input.lower() == 'help':
-                show_help()
+            # Handle enhanced help commands
+            if user_input.lower().startswith('help'):
+                parts = user_input.split(maxsplit=1)
+                if len(parts) == 1:
+                    # Standard help
+                    show_help()
+                elif PROMPT_TOOLKIT_AVAILABLE:
+                    # Enhanced help with argument
+                    arg = parts[1]
+                    if arg.startswith('search:'):
+                        # Search for operations
+                        query = arg[7:].strip()
+                        show_search_results(query, operations_metadata)
+                    elif arg.startswith('category:'):
+                        # Show category
+                        category = arg[9:].strip()
+                        show_category_operations(category, operations_metadata)
+                    else:
+                        # Show help for specific operation
+                        show_operation_help(arg, operations_metadata)
+                else:
+                    show_help()
                 continue
 
             op_name, arg_parts = parse_command(user_input)

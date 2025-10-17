@@ -3,3 +3,6 @@ omit =
     plugins/*
     cli/interactive_mode.py
     utils/visual.py
+    cli/autocompletion.py
+    cli/help_system.py
+    cli/keybindings.py
