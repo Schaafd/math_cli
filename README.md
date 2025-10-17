@@ -28,11 +28,13 @@ Clone the repository and install the package:
 git clone https://github.com/yourusername/math-cli.git
 cd math-cli
 
-# Create a virtual environment (recommended)
+# Option 1: Using uv (recommended - faster!)
+uv venv
+uv pip install -r requirements.txt
+
+# Option 2: Using standard venv
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt
 
 # Or install in editable mode
@@ -43,6 +45,7 @@ pip install -e .
 
 - Python 3.8 or higher
 - rich >= 14.0.0 (for visual enhancements)
+- uv (optional, but recommended for faster dependency installation)
 
 ## Basic Usage
 
