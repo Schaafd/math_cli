@@ -14,7 +14,7 @@ from contextlib import contextmanager
 # Global console instance
 console = Console()
 
-# Color scheme configuration
+# Color scheme configuration (can be updated by theme system)
 COLORS = {
     'input': 'cyan',
     'output': 'green bold',
@@ -29,6 +29,11 @@ COLORS = {
     'prompt': 'white',
     'dim': 'dim',
     'highlight': 'bright_cyan bold',
+    'banner_primary': 'bright_cyan bold',
+    'banner_secondary': 'cyan',
+    'banner_title': 'bright_yellow bold',
+    'table_header': 'bold cyan',
+    'table_border': 'cyan',
 }
 
 # User preferences (can be loaded from config file)
@@ -50,6 +55,28 @@ class VisualPreferences:
 
 # Global preferences instance
 preferences = VisualPreferences()
+
+
+def load_theme_from_config():
+    """Load and apply the theme from configuration."""
+    try:
+        from utils.config import get_config
+        from utils.themes import apply_theme_to_visual
+
+        config = get_config()
+        theme_name = config.get('theme', 'default')
+
+        # Apply the theme
+        apply_theme_to_visual(theme_name)
+
+        # Update preferences from config
+        preferences.colors_enabled = config.get('colors_enabled', True)
+        preferences.animations_enabled = config.get('animations_enabled', True)
+        preferences.show_tips = config.get('show_tips', True)
+
+    except ImportError:
+        # If config or themes not available, use defaults
+        pass
 
 
 def print_welcome_banner():
@@ -77,15 +104,15 @@ def print_welcome_banner():
         lines = banner_text.strip().split('\n')
         for i, line in enumerate(lines):
             if i < 3 or i > len(lines) - 3:
-                style = "bright_cyan bold"
+                style = COLORS.get('banner_primary', 'bright_cyan bold')
             elif i == len(lines) // 2:
-                style = "bright_yellow bold"
+                style = COLORS.get('banner_title', 'bright_yellow bold')
             else:
-                style = "cyan"
+                style = COLORS.get('banner_secondary', 'cyan')
             console.print(line, style=style)
             time.sleep(0.05)
     else:
-        console.print(banner_text, style="bright_cyan bold")
+        console.print(banner_text, style=COLORS.get('banner_primary', 'bright_cyan bold'))
 
     console.print()
 
@@ -214,11 +241,16 @@ def print_history_table(entries):
             print(f"{i+1}: {entry['command']} = {entry['result']}")
         return
 
-    table = Table(title="Calculation History", box=box.ROUNDED)
-    table.add_column("#", style="cyan", width=5)
-    table.add_column("Command", style="yellow")
-    table.add_column("Result", style="green bold")
-    table.add_column("Time", style="dim")
+    table = Table(
+        title="Calculation History",
+        box=box.ROUNDED,
+        header_style=COLORS.get('table_header', 'bold cyan'),
+        border_style=COLORS.get('table_border', 'cyan')
+    )
+    table.add_column("#", style=COLORS.get('number', 'cyan'), width=5)
+    table.add_column("Command", style=COLORS.get('command', 'yellow'))
+    table.add_column("Result", style=COLORS.get('output', 'green bold'))
+    table.add_column("Time", style=COLORS.get('dim', 'dim'))
 
     for i, entry in enumerate(entries):
         timestamp = entry.get('timestamp', '')
@@ -258,10 +290,15 @@ def print_operations_table(operations_metadata):
             print(f"  {op_name} {args_str} - {op_info['help']}")
         return
 
-    table = Table(title="Available Operations", box=box.ROUNDED)
-    table.add_column("Operation", style="yellow bold")
-    table.add_column("Arguments", style="cyan")
-    table.add_column("Description", style="white")
+    table = Table(
+        title="Available Operations",
+        box=box.ROUNDED,
+        header_style=COLORS.get('table_header', 'bold cyan'),
+        border_style=COLORS.get('table_border', 'cyan')
+    )
+    table.add_column("Operation", style=COLORS.get('command', 'yellow bold'))
+    table.add_column("Arguments", style=COLORS.get('number', 'cyan'))
+    table.add_column("Description", style=COLORS.get('info', 'white'))
 
     # Group operations by category if available
     for op_name, op_info in sorted(operations_metadata.items()):

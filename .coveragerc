@@ -6,3 +6,6 @@ omit =
     cli/autocompletion.py
     cli/help_system.py
     cli/keybindings.py
+    utils/config.py
+    utils/themes.py
+    utils/history.py

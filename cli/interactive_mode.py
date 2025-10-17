@@ -83,6 +83,23 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
         """
         print_help_panel("Chained Calculations", chain_help)
 
+        # Show Phase 3 features help
+        phase3_help = """
+**Configuration & Themes:**
+- `config` - Show current configuration
+- `config set <key> <value>` - Update configuration
+- `theme` - List available themes
+- `theme set <name>` - Change theme
+- `theme preview <name>` - Preview a theme
+
+**Export & Bookmarks:**
+- `export <format> <filepath>` - Export history (json, csv, markdown)
+- `bookmark` - List all bookmarks
+- `bookmark save <index> <name>` - Bookmark a result
+- `bookmark get <name>` - Retrieve a bookmark
+        """
+        print_help_panel("Session Management", phase3_help)
+
     def parse_command(input_text, allow_chain=True, current_result=None):
         """Parse the user input command and arguments.
 
@@ -133,6 +150,12 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
                 return None, None
 
         op_name = parts[0]
+
+        # Check if it's a special command (config, theme, export, bookmark)
+        special_commands = ['config', 'theme', 'export', 'bookmark']
+        if op_name in special_commands:
+            return op_name, parts[1:]
+
         if op_name not in operations_metadata:
             # Use advanced fuzzy matching if available
             if PROMPT_TOOLKIT_AVAILABLE:
@@ -286,6 +309,181 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
 
         return None
 
+    def handle_config_command(args):
+        """Handle configuration commands."""
+        from utils.config import get_config
+
+        config = get_config()
+
+        if not args:
+            # Show all configuration
+            config.show_config()
+        elif args[0] == "set" and len(args) >= 3:
+            # Set a configuration value
+            key = args[1]
+            value = args[2]
+
+            # Convert value to appropriate type
+            if value.lower() in ('true', 'false'):
+                value = value.lower() == 'true'
+            elif value.isdigit():
+                value = int(value)
+
+            if config.set(key, value):
+                print_success(f"Configuration updated: {key} = {value}")
+            else:
+                print_error("Failed to save configuration")
+        elif args[0] == "get" and len(args) >= 2:
+            # Get a configuration value
+            key = args[1]
+            value = config.get(key)
+            if value is not None:
+                print_info(f"{key} = {value}")
+            else:
+                print_error(f"Configuration key not found: {key}")
+        elif args[0] == "reset":
+            # Reset to defaults
+            if config.reset():
+                print_success("Configuration reset to defaults")
+            else:
+                print_error("Failed to reset configuration")
+        else:
+            print_error("Invalid config command",
+                       "Usage: config [set <key> <value> | get <key> | reset]")
+
+    def handle_theme_command(args):
+        """Handle theme commands."""
+        from utils.themes import get_theme_manager, apply_theme_to_visual, THEMES
+        from utils.config import get_config
+
+        theme_manager = get_theme_manager()
+        config = get_config()
+
+        if not args:
+            # List all available themes
+            themes = theme_manager.list_themes()
+            current = config.get('theme', 'default')
+
+            console.print("\n[bold]Available Themes:[/bold]\n")
+            for name, description in sorted(themes.items()):
+                marker = "→" if name == current else " "
+                console.print(f"{marker} [cyan]{name:15}[/cyan] {description}")
+            console.print(f"\n[dim]Current theme: {current}[/dim]")
+        elif args[0] == "set" and len(args) >= 2:
+            # Set a theme
+            theme_name = args[1]
+            if apply_theme_to_visual(theme_name):
+                # Save to configuration
+                config.set('theme', theme_name)
+                print_success(f"Theme changed to: {theme_name}")
+                print_info("Theme will be applied to new output")
+            else:
+                available = ', '.join(THEMES.keys())
+                print_error(f"Theme not found: {theme_name}",
+                           f"Available themes: {available}")
+        elif args[0] == "preview" and len(args) >= 2:
+            # Preview a theme
+            theme_name = args[1]
+            theme_manager.preview_theme(theme_name)
+        else:
+            print_error("Invalid theme command",
+                       "Usage: theme [set <name> | preview <name>]")
+
+    def handle_export_command(args):
+        """Handle history export commands."""
+        from pathlib import Path
+
+        if not args or len(args) < 2:
+            print_error("Invalid export command",
+                       "Usage: export <format> <filepath>\n"
+                       "Formats: json, csv, markdown")
+            return
+
+        format_type = args[0].lower()
+        filepath = Path(' '.join(args[1:]))  # Join remaining args as filepath
+
+        try:
+            if format_type == "json":
+                if history.export_to_json(filepath):
+                    print_success(f"History exported to {filepath}")
+                else:
+                    print_error("Failed to export history")
+            elif format_type == "csv":
+                if history.export_to_csv(filepath):
+                    print_success(f"History exported to {filepath}")
+                else:
+                    print_error("Failed to export history")
+            elif format_type == "markdown" or format_type == "md":
+                if history.export_to_markdown(filepath):
+                    print_success(f"History exported to {filepath}")
+                else:
+                    print_error("Failed to export history")
+            else:
+                print_error(f"Unknown export format: {format_type}",
+                           "Supported formats: json, csv, markdown")
+        except Exception as e:
+            print_error(f"Export failed: {str(e)}")
+
+    def handle_bookmark_command(args):
+        """Handle bookmark commands."""
+        if not args:
+            # List all bookmarks
+            bookmarks = history.list_bookmarks()
+            if not bookmarks:
+                print_info("No bookmarks saved")
+                return
+
+            from rich.table import Table
+            from rich import box
+
+            table = Table(
+                title="Saved Bookmarks",
+                box=box.ROUNDED,
+                header_style="bold cyan"
+            )
+            table.add_column("Name", style="yellow bold")
+            table.add_column("Command", style="cyan")
+            table.add_column("Result", style="green bold")
+
+            for name, bookmark in sorted(bookmarks.items()):
+                from utils.visual import format_number
+                table.add_row(
+                    name,
+                    bookmark['command'],
+                    format_number(bookmark['result'])
+                )
+
+            console.print(table)
+        elif args[0] == "save" and len(args) >= 3:
+            # Save a bookmark: bookmark save <index> <name>
+            try:
+                index = int(args[1]) - 1  # Convert to 0-based
+                name = args[2]
+                history.bookmark_result(index, name)
+                print_success(f"Result bookmarked as '{name}'")
+            except ValueError:
+                print_error("Invalid bookmark index",
+                           "Usage: bookmark save <history_index> <name>")
+        elif args[0] == "get" and len(args) >= 2:
+            # Get a bookmark value
+            name = args[1]
+            bookmark = history.get_bookmark(name)
+            if bookmark:
+                from utils.visual import format_number
+                print_info(f"Bookmark '{name}': {bookmark['command']} = {format_number(bookmark['result'])}")
+            else:
+                print_error(f"Bookmark not found: {name}")
+        elif args[0] == "delete" and len(args) >= 2:
+            # Delete a bookmark
+            name = args[1]
+            if history.delete_bookmark(name):
+                print_success(f"Bookmark deleted: {name}")
+            else:
+                print_error(f"Bookmark not found: {name}")
+        else:
+            print_error("Invalid bookmark command",
+                       "Usage: bookmark [save <index> <name> | get <name> | delete <name>]")
+
     # Show initial tips about features
     console.print()
     print_tip("Use '$' or 'ans' to reference the previous result in calculations")
@@ -371,6 +569,23 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
             if op_name == "chain":
                 result = handle_chain_command(arg_parts)
                 # We don't need to update last_result here as it's now handled inside handle_chain_command
+                continue
+
+            # Phase 3: Configuration and theme commands
+            if op_name == "config":
+                handle_config_command(arg_parts)
+                continue
+
+            if op_name == "theme":
+                handle_theme_command(arg_parts)
+                continue
+
+            if op_name == "export":
+                handle_export_command(arg_parts)
+                continue
+
+            if op_name == "bookmark":
+                handle_bookmark_command(arg_parts)
                 continue
 
             # Handle regular operations

@@ -2,7 +2,8 @@ from utils.history import HistoryManager
 
 
 def test_history_add_get_len_and_clear():
-    h = HistoryManager(max_entries=3)
+    # Disable persistence for testing
+    h = HistoryManager(max_entries=3, persistent=False)
 
     assert len(h) == 0
 

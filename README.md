@@ -153,7 +153,7 @@ Math CLI features a **delightful interactive experience** with:
 - 🎯 **Smart Error Messages** - Clear, friendly error messages with suggestions
 - ⚡ **Chain Visualization** - Step-by-step display for chained calculations
 
-### Interactive Features (Phase 2 - NEW!)
+### Interactive Features (Phase 2)
 
 Enhanced interactivity with intelligent assistance:
 
@@ -164,6 +164,40 @@ Enhanced interactivity with intelligent assistance:
 - 📂 **Category Browsing** - Use `help category:statistics` to see all statistical operations
 - ⌨️ **Keyboard Shortcuts** - Ctrl+L to clear, Ctrl+D to exit, ↑↓ for history
 - 📊 **Bottom Toolbar** - See previous results and available shortcuts at a glance
+
+### Session Management & Personalization (Phase 3 - NEW!)
+
+Professional data management and customization:
+
+- 🎨 **8 Beautiful Themes** - Choose from default, dark, light, ocean, forest, sunset, and more
+- ⚙️ **Configuration System** - Customize every aspect of Math CLI behavior
+- 💾 **Persistent History** - Automatic save/load of calculation history across sessions
+- 📤 **Export Functionality** - Export history to JSON, CSV, or Markdown formats
+- 🔖 **Bookmark System** - Save important results with custom names for quick retrieval
+- 🎯 **Cross-Platform** - Config stored in proper system directories (XDG/APPDATA)
+
+**Phase 3 Commands:**
+```bash
+# Configuration
+config                        # Show all settings
+config set theme ocean        # Change theme
+config get history_limit      # Get specific setting
+
+# Themes
+theme                         # List available themes
+theme set dark                # Switch to dark theme
+theme preview ocean           # Preview a theme
+
+# Export
+export json ~/calc.json       # Export to JSON
+export csv ~/data.csv         # Export to CSV
+export markdown ~/report.md   # Export to Markdown
+
+# Bookmarks
+bookmark                      # List all bookmarks
+bookmark save 1 pi_value      # Bookmark history entry
+bookmark get pi_value         # Retrieve bookmark
+```
 
 ### Accessibility Options
 
