@@ -7,6 +7,14 @@ rich>=14.0.0
 # Interactive features and autocompletion (Phase 2)
 prompt_toolkit>=3.0.0
 
+# Performance monitoring (Phase 4)
+psutil>=5.9.0
+
+# Advanced mathematical operations (Phase 5.1)
+numpy>=1.24.0
+scipy>=1.10.0
+sympy>=1.12
+
 # Testing dependencies
 pytest>=7.0.0
 pytest-cov>=4.0.0

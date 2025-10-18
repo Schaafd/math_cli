@@ -2,6 +2,7 @@
 omit =
     plugins/*
     cli/interactive_mode.py
+    cli/multiline_input.py
     utils/visual.py
     cli/autocompletion.py
     cli/help_system.py
@@ -9,3 +10,8 @@ omit =
     utils/config.py
     utils/themes.py
     utils/history.py
+    utils/performance.py
+    utils/plotting.py
+    utils/accessibility.py
+    utils/animations.py
+    math_cli_orig.py

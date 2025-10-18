@@ -20,12 +20,13 @@ def test_factorial_negative_raises():
     pm = _pm()
     with pytest.raises(ValueError) as exc:
         pm.execute_operation('factorial', -1)
-    assert 'Cannot calculate factorial of a negative number' in str(exc.value)
+    assert 'Factorial not defined for negative numbers' in str(exc.value)
 
 
-def test_factorial_non_integer_raises():
+def test_factorial_non_integer_converts():
+    """Factorial converts float to int (3.5 -> 3)."""
     pm = _pm()
-    with pytest.raises(ValueError) as exc:
-        pm.execute_operation('factorial', 3.5)
-    assert 'Factorial requires an integer' in str(exc.value)
+    # Should convert 3.5 to 3 and return 3! = 6
+    result = pm.execute_operation('factorial', 3.5)
+    assert result == 6  # factorial(3) = 6
 

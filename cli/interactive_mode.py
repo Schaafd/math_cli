@@ -33,13 +33,38 @@ try:
 except ImportError:
     PROMPT_TOOLKIT_AVAILABLE = False
 
-def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_colors=True, enable_animations=True) -> None:
-    """Run the CLI in interactive mode with rich visual enhancements."""
+def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_colors=True, enable_animations=True, accessibility_settings=None) -> None:
+    """Run the CLI in interactive mode with rich visual enhancements.
+
+    Args:
+        plugin_manager: Plugin manager instance
+        operations_metadata: Dictionary of operation metadata
+        enable_colors: Whether to enable colors
+        enable_animations: Whether to enable animations
+        accessibility_settings: Optional accessibility settings dictionary
+    """
     # Set visual preferences
     if not enable_colors:
         preferences.disable_colors()
     if not enable_animations:
         preferences.disable_animations()
+
+    # Phase 4: Apply accessibility settings
+    if accessibility_settings:
+        from utils.accessibility import get_accessibility_manager
+        a11y = get_accessibility_manager()
+
+        if accessibility_settings.get('screen_reader_mode'):
+            a11y.enable_screen_reader_mode()
+            # Auto-disable animations and colors for screen readers
+            preferences.disable_colors()
+            preferences.disable_animations()
+
+        if accessibility_settings.get('high_contrast'):
+            a11y.enable_high_contrast()
+            # Apply high contrast theme
+            from utils.themes import apply_theme_to_visual
+            apply_theme_to_visual('high-contrast')
 
     # Display welcome banner
     print_welcome_banner()
@@ -100,6 +125,27 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
         """
         print_help_panel("Session Management", phase3_help)
 
+        # Show Phase 4 features help
+        phase4_help = """
+**Plotting:**
+- `plot <function> <start> <end>` - Plot a mathematical function
+- `plot_data <values...>` - Scatter plot of data points
+- `plot_bar <values...>` - Bar chart
+- `plot_line <values...>` - Line chart
+
+**Multi-line Input:**
+- Use `\\` at end of line to continue on next line
+- Unclosed brackets `(` `[` `{` automatically continue
+- Chain commands ending with `|` continue automatically
+- Press Enter twice on blank line to cancel continuation
+
+**Performance:**
+- `perf` - Show performance metrics
+- `perf reset` - Reset metrics
+- `perf startup` - Show startup metrics
+        """
+        print_help_panel("Advanced Features (Phase 4)", phase4_help)
+
     def parse_command(input_text, allow_chain=True, current_result=None):
         """Parse the user input command and arguments.
 
@@ -151,8 +197,8 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
 
         op_name = parts[0]
 
-        # Check if it's a special command (config, theme, export, bookmark)
-        special_commands = ['config', 'theme', 'export', 'bookmark']
+        # Check if it's a special command (config, theme, export, bookmark, perf)
+        special_commands = ['config', 'theme', 'export', 'bookmark', 'perf']
         if op_name in special_commands:
             return op_name, parts[1:]
 
@@ -484,6 +530,93 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
             print_error("Invalid bookmark command",
                        "Usage: bookmark [save <index> <name> | get <name> | delete <name>]")
 
+    def handle_perf_command(args):
+        """Handle performance monitoring commands."""
+        from utils.performance import get_monitor, get_startup_metrics
+
+        monitor = get_monitor()
+
+        if not args:
+            # Show performance summary
+            monitor.print_summary()
+        elif args[0] == "reset":
+            # Reset metrics
+            monitor.reset()
+            print_success("Performance metrics reset")
+        elif args[0] == "startup":
+            # Show startup metrics
+            metrics = get_startup_metrics()
+            console.print(f"\n[cyan]Startup Metrics:[/cyan]")
+            console.print(f"  Uptime: {metrics['uptime']:.2f}s")
+            console.print(f"  Memory Usage: {metrics['memory_usage']:.2f} MB")
+            console.print(f"  Memory Delta: {metrics['memory_delta']:.2f} MB")
+        else:
+            print_error("Invalid perf command",
+                       "Usage: perf [reset | startup]")
+
+    def handle_plot_command(plot_type, args):
+        """Handle plotting commands."""
+        from utils.plotting import plot_function_string, ASCIIPlotter
+
+        try:
+            if plot_type == "plot":
+                # plot <function> <start> <end>
+                if len(args) < 3:
+                    print_error("plot requires 3 arguments",
+                               "Usage: plot <function> <start> <end>")
+                    return
+
+                func_name = args[0]
+                start = float(args[1])
+                end = float(args[2])
+
+                result = plot_function_string(func_name, start, end)
+
+                console.print(f"\n[cyan]Plot:[/cyan] {func_name}(x) from {start} to {end}\n")
+                console.print(result)
+
+                # Add to history
+                history.add_entry(f"plot {func_name} {start} {end}", f"Plotted {func_name}(x)")
+
+            elif plot_type in ["plot_data", "plot_line", "plot_bar"]:
+                # plot_data/plot_line/plot_bar <values...>
+                if len(args) == 0:
+                    print_error(f"{plot_type} requires at least one value",
+                               f"Usage: {plot_type} <value1> <value2> ...")
+                    return
+
+                # Convert all args to floats
+                values = [float(arg) for arg in args]
+
+                # Determine style
+                style_map = {
+                    'plot_data': 'scatter',
+                    'plot_line': 'line',
+                    'plot_bar': 'bar'
+                }
+                style = style_map[plot_type]
+
+                # Create plotter with appropriate size
+                width = min(len(values) * 4, 60) if style == 'bar' else 50
+                plotter = ASCIIPlotter(width=width, height=15)
+                result = plotter.plot_data(values, style=style)
+
+                # Display
+                title_map = {
+                    'plot_data': 'Data Plot',
+                    'plot_line': 'Line Chart',
+                    'plot_bar': 'Bar Chart'
+                }
+                console.print(f"\n[cyan]{title_map[plot_type]}:[/cyan] {len(values)} points\n")
+                console.print(result)
+
+                # Add to history
+                history.add_entry(f"{plot_type} {' '.join(args)}", f"Plotted {len(values)} {style}")
+
+        except ValueError as e:
+            print_error(f"Error in plot command: {str(e)}",
+                       "Check that all numeric arguments are valid")
+
     # Show initial tips about features
     console.print()
     print_tip("Use '$' or 'ans' to reference the previous result in calculations")
@@ -497,12 +630,34 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
 
     # Setup prompt_toolkit session if available
     if PROMPT_TOOLKIT_AVAILABLE and preferences.colors_enabled:
+        from cli.multiline_input import MultilineDetector
+        from prompt_toolkit.filters import Condition
+
+        # Create multiline detector
+        multiline_detector = MultilineDetector()
+
+        # Custom multiline check function wrapped in Condition (Filter)
+        @Condition
+        def is_multiline():
+            """Check if input should continue to next line."""
+            # Get the current text from the app's current buffer
+            from prompt_toolkit.application import get_app
+            try:
+                app = get_app()
+                text = app.current_buffer.text
+                needs_cont, _ = multiline_detector.needs_continuation(text)
+                return needs_cont
+            except:
+                return False
+
         session = PromptSession(
             history=InMemoryHistory(),
             completer=MathOperationCompleter(operations_metadata),
             complete_while_typing=False,  # Only complete on Tab
             key_bindings=create_key_bindings(history),
-            bottom_toolbar=lambda: get_bottom_toolbar_text(last_result, show_shortcuts=True)
+            bottom_toolbar=lambda: get_bottom_toolbar_text(last_result, show_shortcuts=True),
+            multiline=is_multiline,  # Enable smart multiline
+            prompt_continuation="... "
         )
     else:
         session = None
@@ -520,14 +675,16 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
 
                 user_input = session.prompt(prompt_text).strip()
             else:
-                # Fallback to standard input
+                # Fallback to standard input with multiline support
+                from cli.multiline_input import collect_multiline_input
+
                 if last_result is not None:
                     from utils.visual import format_number
                     prompt = f"\n❯ (prev: {format_number(last_result)}) " if preferences.colors_enabled else f"\nEnter command (previous: {last_result}): "
                 else:
                     prompt = "\n❯ " if preferences.colors_enabled else "\nEnter command: "
 
-                user_input = input(prompt).strip()
+                user_input = collect_multiline_input(prompt, "... ", preferences.colors_enabled)
 
             if user_input.lower() in ('exit', 'quit'):
                 print_success("Goodbye! Thanks for using Math CLI")
@@ -588,14 +745,55 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
                 handle_bookmark_command(arg_parts)
                 continue
 
+            # Phase 4: Performance monitoring
+            if op_name == "perf":
+                handle_perf_command(arg_parts)
+                continue
+
+            # Phase 4: Plotting operations (need special handling for string arguments)
+            if op_name in ['plot', 'plot_data', 'plot_line', 'plot_bar']:
+                handle_plot_command(op_name, arg_parts)
+                continue
+
             # Handle regular operations
             arg_values = process_args(op_name, arg_parts)
             if arg_values is None:
                 continue
 
             try:
-                result = plugin_manager.execute_operation(op_name, *arg_values)
+                # Profile the operation execution
+                from utils.performance import measure
+                with measure(f"operation_{op_name}"):
+                    result = plugin_manager.execute_operation(op_name, *arg_values)
+
                 print_result(result)
+
+                # Phase 4: Check for special numbers and easter eggs
+                if enable_animations and preferences.animations_enabled:
+                    from utils.animations import (
+                        get_milestone_detector,
+                        get_special_number_detector,
+                        AnimationController
+                    )
+
+                    animation_controller = AnimationController(console, enable_animations)
+
+                    # Check for easter eggs first (takes priority)
+                    easter_egg_shown = animation_controller.check_and_show_easter_egg(result)
+
+                    # Check for special numbers (if no easter egg)
+                    if not easter_egg_shown:
+                        special_detector = get_special_number_detector()
+                        special_info = special_detector.check_number(result)
+                        if special_info:
+                            name, emoji = special_info
+                            animation_controller.show_special_number(name, emoji, result)
+
+                    # Check for calculation milestones
+                    milestone_detector = get_milestone_detector()
+                    milestone = milestone_detector.increment()
+                    if milestone:
+                        animation_controller.celebrate_milestone(milestone)
 
                 # Store as the last result for reference
                 last_result = result

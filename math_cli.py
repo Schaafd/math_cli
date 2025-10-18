@@ -55,7 +55,14 @@ def main():
     if global_args.interactive:
         enable_colors = not global_args.no_color
         enable_animations = not global_args.no_animations
-        run_interactive_mode(plugin_manager, operations_metadata, enable_colors, enable_animations)
+
+        # Phase 4: Accessibility settings
+        accessibility_settings = {
+            'screen_reader_mode': global_args.screen_reader if hasattr(global_args, 'screen_reader') else False,
+            'high_contrast': global_args.high_contrast if hasattr(global_args, 'high_contrast') else False,
+        }
+
+        run_interactive_mode(plugin_manager, operations_metadata, enable_colors, enable_animations, accessibility_settings)
         return 0
 
     # If we get here, we should have an operation command
@@ -96,8 +103,13 @@ def create_global_argument_parser():
     parser.add_argument('--interactive', '-i', action='store_true', help='Run in interactive mode')
     parser.add_argument('--plugin-dir', action='append', help='Directory containing additional plugins')
     parser.add_argument('--list-plugins', action='store_true', help='List available operation plugins')
+
+    # Accessibility options
     parser.add_argument('--no-color', action='store_true', help='Disable colored output (accessibility)')
     parser.add_argument('--no-animations', action='store_true', help='Disable animations (accessibility)')
+    parser.add_argument('--screen-reader', action='store_true', help='Enable screen reader mode (accessibility)')
+    parser.add_argument('--high-contrast', action='store_true', help='Enable high contrast mode (accessibility)')
+
     parser.add_argument('--help', '-h', action='store_true', help='Show help message')
 
     return parser

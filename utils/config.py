@@ -30,6 +30,13 @@ class ConfigManager:
             "date_format": "%Y-%m-%d %H:%M:%S",
             "number_format": "auto",  # auto, comma, scientific, raw
             "decimal_places": 6,
+            # Accessibility settings (Phase 4)
+            "screen_reader_mode": False,
+            "high_contrast": False,
+            "reduce_motion": False,
+            "keyboard_only": False,
+            "large_text": False,
+            "verbose_output": False,
         }
 
         # Load or create configuration
