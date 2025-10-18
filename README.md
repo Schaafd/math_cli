@@ -17,7 +17,7 @@ A modular command-line calculator with plugin support for mathematical operation
   - [Data Import/Export](#data-importexport)
   - [Statistical Analysis](#statistical-analysis-12-operations)
   - [Data Transformation](#data-transformation-11-operations)
-  - [Advanced Plotting](#advanced-plotting-ascii-visualizations)
+  - [CLI Plotting Operations](#cli-plotting-operations-phase-525---new)
 - [Interactive Mode](#interactive-mode)
   - [Visual Enhancements](#visual-enhancements-phase-1)
   - [Interactive Features](#interactive-features-phase-2)
@@ -105,7 +105,7 @@ To list all available operations:
 python math_cli.py --list-plugins
 ```
 
-Math CLI includes **230+ mathematical operations** organized into 14 logical categories:
+Math CLI includes **235+ mathematical operations** organized into 15 logical categories:
 
 The operations are organized into these categories (use `--list-plugins` to see all):
 
@@ -120,9 +120,10 @@ The operations are organized into these categories (use `--list-plugins` to see 
 9. **Geometry** (9 ops) - area_circle, volume_sphere, distance, perimeter
 10. **Data Analysis** (12 ops) - load_data, describe_data, correlation_matrix, groupby
 11. **Data Transformation** (11 ops) - filter_data, normalize_data, sort_data, aggregate_data
-12. **Unit Conversions** (38 ops) - celsius_to_fahrenheit, miles_to_kilometers, etc.
-13. **Constants** (7 ops) - pi, e, golden_ratio, speed_of_light, avogadro
-14. **Other Operations** (29 ops) - Various utility functions
+12. **Visualization** (8 ops) - plot_hist, plot_box, plot_scatter, plot_heatmap, plot, plot_line, plot_bar, plot_data
+13. **Unit Conversions** (38 ops) - celsius_to_fahrenheit, miles_to_kilometers, etc.
+14. **Constants** (7 ops) - pi, e, golden_ratio, speed_of_light, avogadro
+15. **Other Operations** (26 ops) - Various utility functions
 
 ## Core Plugins
 
@@ -339,63 +340,87 @@ quantity    50.23
 price       99.87
 ```
 
-### Advanced Plotting (ASCII Visualizations)
+### CLI Plotting Operations (Phase 5.2.5 - NEW!)
 
-Create beautiful ASCII visualizations of your data:
+Create beautiful ASCII visualizations directly from the command line using loaded datasets:
+
+#### Statistical Plots (4 operations)
 
 ```bash
-# Histogram
-❯ python -c "from utils.advanced_plotting import plot_histogram; import numpy as np; print(plot_histogram(np.random.randn(1000), bins=20))"
+# Load your dataset first
+❯ load_data sales.csv csv sales
+Loaded 10 rows × 4 columns
 
-Histogram (20 bins)
+# 1. HISTOGRAM - Distribution analysis
+❯ plot_hist sales price 5
+Histogram (5 bins)
 ────────────────────────────────────────────────────────────
-   -3.24--2.92 │███ 8
-   -2.92--2.59 │█████ 15
-   -2.59--2.27 │███████ 25
-   -2.27--1.94 │████████████ 42
-   -1.94--1.62 │███████████████ 56
-   -1.62--1.29 │█████████████████████ 78
-   -1.29--0.97 │████████████████████████████ 102
-   -0.97--0.64 │███████████████████████████████████ 125
-   -0.64--0.32 │████████████████████████████████████████ 145
-   -0.32- 0.01 │████████████████████████████████████████ 145
+   15.50-   30.40 │██████████████████████████ 2
+   30.40-   45.30 │█████████████ 1
+   45.30-   60.20 │██████████████████████████ 2
+   60.20-   75.10 │█████████████ 1
+   75.10-   90.00 │████████████████████████████████████████ 4
 ────────────────────────────────────────────────────────────
-Min: -3.24, Max: 3.18, Mean: -0.02, Std: 1.01
+Min: 15.50, Max: 89.99, Mean: 43.92, Std: 23.84
 
-# Box plot - shows quartiles and outliers
-❯ python -c "from utils.advanced_plotting import plot_boxplot; import numpy as np; print(plot_boxplot(np.random.randn(100)))"
-
-Box Plot: Data
+# 2. BOX PLOT - Shows quartiles and outliers
+❯ plot_box sales revenue Revenue
+Box Plot: Revenue
 ────────────────────────────────────────────────────────────
-          ├──────────┤│┤──────────────┤
+          ├─────├─────│───────┤───────────────────
 ────────────────────────────────────────────────────────────
-Min: -2.45  Q1: -0.68  Median: 0.05  Q3: 0.72  Max: 2.31
-IQR: 1.40  Outliers: 3
+Min: 1038.50  Q1: 1507.75  Median: 1727.00  Q3: 1965.89  Max: 2175.00
+IQR: 458.14  Outliers: 0
 
-# Scatter plot with regression line
-❯ python -c "from utils.advanced_plotting import plot_scatter_regression; import numpy as np; x = np.array([1,2,3,4,5]); y = np.array([2,4,5,4,5]); print(plot_scatter_regression(x, y))"
-
+# 3. SCATTER PLOT with Linear Regression
+❯ plot_scatter sales quantity revenue
 Scatter Plot with Linear Regression
-y = 0.600x + 2.200  (R² = 0.643)
+y = -13.058x + 2288.939  (R² = 0.336)
 ────────────────────────────────────────────────────────────
-          ●
-       ──●──
-    ──●──
- ──●────
-●──
+        ●
+                 ●
+  ●
+           ●
+                        ●
+                              ●
+                                    ●
+                                             ●
 ────────────────────────────────────────────────────────────
-X: [1.00, 5.00]  Y: [2.00, 5.00]
+X: [23.00, 78.00]  Y: [1038.50, 2175.00]
 
-# Correlation heatmap
-❯ python -c "from utils.advanced_plotting import plot_heatmap; import pandas as pd; df = pd.DataFrame({'A': [1,2,3], 'B': [2,4,6], 'C': [3,2,1]}); print(plot_heatmap(df.corr()))"
-
+# 4. CORRELATION HEATMAP - See relationships between all numeric columns
+❯ plot_heatmap sales
 Correlation Heatmap
 ────────────────────────────────────────────────────────────
-A  │ @ # :
-B  │ # @ +
-C  │ : + @
+quantity  │ @   .
+price     │   @ %
+revenue   │ . % @
 ────────────────────────────────────────────────────────────
 Scale: -1.0 [  ] 0.0 [:-] +1.0 [@#]
+```
+
+**Available Plotting Operations:**
+- `plot_hist <dataset> <column> <bins>` - Histogram with customizable bins
+- `plot_box <dataset> <column> <label>` - Box plot showing quartiles and outliers
+- `plot_scatter <dataset> <x_col> <y_col>` - Scatter plot with regression line and R²
+- `plot_heatmap <dataset>` - Correlation matrix heatmap for all numeric columns
+
+#### Python API (Advanced Users)
+
+For more control, you can also use the plotting utilities directly in Python:
+
+```python
+from utils.advanced_plotting import plot_histogram, plot_boxplot, plot_scatter_regression, plot_heatmap
+import numpy as np
+import pandas as pd
+
+# Create custom plots with full control
+data = np.random.randn(1000)
+print(plot_histogram(data, bins=20, width=80, height=25))
+
+# Use with pandas DataFrames
+df = pd.DataFrame({'A': [1,2,3], 'B': [2,4,6]})
+print(plot_heatmap(df.corr()))
 ```
 
 ### Complete Data Analysis Workflow Example
@@ -439,6 +464,19 @@ Product_C    145000      6789
 # Detect outliers in revenue
 ❯ detect_outliers sales revenue 1.5
 Found 8 outliers (2.2% of data)
+
+# Visualize the data (Phase 5.2.5 - NEW!)
+❯ plot_hist sales revenue 10
+[Displays revenue distribution histogram]
+
+❯ plot_box sales units_sold
+[Shows units_sold quartiles and outliers]
+
+❯ plot_scatter sales revenue units_sold
+[Scatter plot showing revenue vs units correlation]
+
+❯ plot_heatmap sales
+[Correlation matrix of all numeric columns]
 
 # Export results
 ❯ save_data high_value 'high_value_sales.csv' csv
