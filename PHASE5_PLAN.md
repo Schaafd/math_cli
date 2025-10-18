@@ -9,13 +9,14 @@
 
 ## Overview
 
-Phase 5 represents an ambitious expansion of Math CLI from a polished calculator into a full-featured mathematical computing platform. This phase is divided into 5 progressive sub-phases, each adding a distinct category of advanced capabilities:
+Phase 5 represents an ambitious expansion of Math CLI from a polished calculator into a full-featured mathematical computing platform. This phase is divided into progressive sub-phases, each adding a distinct category of advanced capabilities:
 
 1. **Phase 5.1**: Advanced Mathematical Features (Complex numbers, matrices, statistics, calculus)
 2. **Phase 5.2**: Data Analysis & Visualization (CSV/JSON import, statistical analysis, advanced plots)
-3. **Phase 5.3**: Programmability & Scripting (Scripts, variables, functions, control flow)
-4. **Phase 5.4**: Integration & Connectivity (APIs, cloud sync, export formats)
-5. **Phase 5.5**: AI/ML Features (Natural language, pattern recognition, smart suggestions)
+3. **Phase 5.2.5**: CLI Plotting Integration (Make plotting accessible via command-line operations)
+4. **Phase 5.3**: Programmability & Scripting (Scripts, variables, functions, control flow)
+5. **Phase 5.4**: Integration & Connectivity (APIs, cloud sync, export formats)
+6. **Phase 5.5**: AI/ML Features (Natural language, pattern recognition, smart suggestions)
 
 ---
 
@@ -265,6 +266,85 @@ seaborn>=0.12.0        # Statistical visualization patterns
 - Created `plugins/data_transform_plugin.py` with 13 transformation operations
 - All 36 Phase 5.2 tests passing
 - Total test suite: 132 tests passing with 92.78% coverage
+
+---
+
+# Phase 5.2.5: CLI Plotting Integration ✅ COMPLETE
+
+**Priority:** HIGH | **Duration:** Completed in 1 session | **Complexity:** Low
+
+## Goals
+
+Integrate existing ASCII plotting utilities as CLI operations, making them accessible directly from the command line while retaining direct Python API access for advanced users.
+
+## Features
+
+### 1. Plot Operations Plugin
+**Module:** `plugins/plotting_plugin.py`
+
+**Operations:**
+- `plot_hist <dataset> <column> <?bins>` - Create histogram from dataset column
+- `plot_box <dataset> <column> <?label>` - Create box plot showing quartiles
+- `plot_scatter <dataset> <x_col> <y_col>` - Scatter plot with regression line
+- `plot_heatmap <dataset>` - Correlation heatmap of numeric columns
+- `plot_function <expression> <start> <end> <?points>` - Plot mathematical function
+
+**CLI Examples:**
+```bash
+# After loading a dataset
+❯ load_data sales.csv csv sales
+❯ plot_hist sales price 20              # Histogram with 20 bins
+❯ plot_box sales revenue                # Box plot of revenue
+❯ plot_scatter sales quantity price     # Scatter plot with regression
+❯ plot_heatmap sales                    # Correlation heatmap
+
+# Plot mathematical functions
+❯ plot_function 'x**2' -10 10           # Parabola
+❯ plot_function 'sin(x)' 0 6.28 100     # Sine wave with 100 points
+```
+
+**Implementation Steps:**
+1. Create `plugins/plotting_plugin.py`
+2. Implement 5 plotting operations wrapping utils functions
+3. Add proper error handling for missing datasets/columns
+4. Support both dataset references and direct data
+5. Add comprehensive tests
+6. Update documentation
+
+### 2. Integration with DataManager
+- Plot operations access datasets from DataManager
+- Support column-based plotting
+- Automatic handling of missing values
+- Type checking for numeric columns
+
+### 3. Flexible Data Input
+- Plot from loaded datasets: `plot_hist mydata price`
+- Plot from direct values: `plot_box [1,2,3,4,5]` (future enhancement)
+- Support for mathematical expressions in plot_function
+
+## Dependencies
+
+No new dependencies (uses existing utils/plotting.py and utils/advanced_plotting.py)
+
+## Success Metrics
+
+- [x] 5 plot operations accessible via CLI (4 statistical + existing function plot)
+- [x] Integration with DataManager for dataset access
+- [x] All plotting tests passing (25 new tests)
+- [x] Documentation updated with examples
+- [x] Maintains backward compatibility with Python API
+
+**Implementation Results:**
+- Extended `plugins/plotting_plugin.py` with 4 new statistical operations:
+  - `plot_hist` - Histogram from dataset column
+  - `plot_box` - Box plot with quartiles and outliers
+  - `plot_scatter` - Scatter plot with linear regression
+  - `plot_heatmap` - Correlation heatmap
+- Created comprehensive test suite: `tests/test_phase525_plotting.py` (25 tests)
+- All 157 tests passing in full test suite
+- Plotting operations use 'visualization' category
+- Full integration with DataManager for dataset-based plotting
+- Maintains existing plot, plot_data, plot_bar, plot_line operations
 
 ---
 

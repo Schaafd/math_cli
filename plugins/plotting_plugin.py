@@ -1,7 +1,20 @@
-"""Plotting operations plugin for Math CLI."""
+"""Plotting operations plugin for Math CLI.
+
+Provides both basic plotting operations and statistical plotting
+operations that integrate with loaded datasets.
+"""
 
 from core.base_operations import MathOperation
 from utils.plotting import plot_function_string, plot_expression, ASCIIPlotter
+from utils.data_io import get_data_manager
+from utils.advanced_plotting import (
+    plot_histogram,
+    plot_boxplot,
+    plot_scatter_regression,
+    plot_heatmap
+)
+import pandas as pd
+import numpy as np
 
 
 class PlotFunctionOperation(MathOperation):
@@ -154,3 +167,217 @@ class PlotLineOperation(MathOperation):
 
         # Return summary
         return f"Plotted {len(values)} points as line"
+
+
+# Statistical Plotting Operations (Phase 5.2.5)
+# These operations integrate with DataManager for dataset-based plotting
+
+class PlotHistogramOperation(MathOperation):
+    """Create a histogram from dataset column."""
+
+    name = "plot_hist"
+    args = ["dataset", "column", "?bins"]
+    help = "Plot histogram: plot_hist mydata price 20"
+    category = "visualization"
+
+    @classmethod
+    def execute(cls, dataset: str, column: str, bins: str = "10") -> str:
+        """Create histogram from dataset column.
+
+        Args:
+            dataset: Name of loaded dataset
+            column: Column name to plot
+            bins: Number of bins (default: 10)
+
+        Returns:
+            ASCII histogram
+        """
+        manager = get_data_manager()
+
+        # Get dataset
+        df = manager.get_dataset(dataset)
+
+        # Validate column exists
+        if column not in df.columns:
+            raise ValueError(f"Column '{column}' not found. Available: {list(df.columns)}")
+
+        # Get column data
+        data = df[column]
+
+        # Validate numeric
+        if not pd.api.types.is_numeric_dtype(data):
+            raise ValueError(f"Column '{column}' must be numeric for histogram")
+
+        # Convert bins to int
+        try:
+            bins_int = int(bins)
+        except ValueError:
+            raise ValueError(f"bins must be an integer, got: {bins}")
+
+        # Create and display plot
+        result = plot_histogram(data, bins=bins_int)
+
+        from utils.visual import console, preferences
+        if preferences.colors_enabled:
+            console.print(f"\n[cyan]Histogram:[/cyan] {dataset}.{column}\n")
+            console.print(result)
+        else:
+            print(f"\nHistogram: {dataset}.{column}\n")
+            print(result)
+
+        return f"Plotted histogram of {dataset}.{column}"
+
+
+class PlotBoxplotOperation(MathOperation):
+    """Create a box plot from dataset column."""
+
+    name = "plot_box"
+    args = ["dataset", "column", "?label"]
+    help = "Plot box plot: plot_box mydata revenue Sales"
+    category = "visualization"
+
+    @classmethod
+    def execute(cls, dataset: str, column: str, label: str = None) -> str:
+        """Create box plot from dataset column.
+
+        Args:
+            dataset: Name of loaded dataset
+            column: Column name to plot
+            label: Optional label for the plot
+
+        Returns:
+            ASCII box plot
+        """
+        manager = get_data_manager()
+
+        # Get dataset
+        df = manager.get_dataset(dataset)
+
+        # Validate column exists
+        if column not in df.columns:
+            raise ValueError(f"Column '{column}' not found. Available: {list(df.columns)}")
+
+        # Get column data
+        data = df[column]
+
+        # Validate numeric
+        if not pd.api.types.is_numeric_dtype(data):
+            raise ValueError(f"Column '{column}' must be numeric for box plot")
+
+        # Use column name as label if not provided
+        if label is None:
+            label = column
+
+        # Create and display plot
+        result = plot_boxplot(data, label=label)
+
+        from utils.visual import console, preferences
+        if preferences.colors_enabled:
+            console.print(f"\n[cyan]Box Plot:[/cyan] {dataset}.{column}\n")
+            console.print(result)
+        else:
+            print(f"\nBox Plot: {dataset}.{column}\n")
+            print(result)
+
+        return f"Plotted box plot of {dataset}.{column}"
+
+
+class PlotScatterOperation(MathOperation):
+    """Create a scatter plot with regression line."""
+
+    name = "plot_scatter"
+    args = ["dataset", "x_column", "y_column"]
+    help = "Plot scatter with regression: plot_scatter mydata quantity price"
+    category = "visualization"
+
+    @classmethod
+    def execute(cls, dataset: str, x_column: str, y_column: str) -> str:
+        """Create scatter plot with linear regression.
+
+        Args:
+            dataset: Name of loaded dataset
+            x_column: Column name for x-axis
+            y_column: Column name for y-axis
+
+        Returns:
+            ASCII scatter plot with regression line
+        """
+        manager = get_data_manager()
+
+        # Get dataset
+        df = manager.get_dataset(dataset)
+
+        # Validate columns exist
+        if x_column not in df.columns:
+            raise ValueError(f"Column '{x_column}' not found. Available: {list(df.columns)}")
+        if y_column not in df.columns:
+            raise ValueError(f"Column '{y_column}' not found. Available: {list(df.columns)}")
+
+        # Get column data
+        x_data = df[x_column]
+        y_data = df[y_column]
+
+        # Validate numeric
+        if not pd.api.types.is_numeric_dtype(x_data):
+            raise ValueError(f"Column '{x_column}' must be numeric for scatter plot")
+        if not pd.api.types.is_numeric_dtype(y_data):
+            raise ValueError(f"Column '{y_column}' must be numeric for scatter plot")
+
+        # Create and display plot
+        result = plot_scatter_regression(x_data, y_data)
+
+        from utils.visual import console, preferences
+        if preferences.colors_enabled:
+            console.print(f"\n[cyan]Scatter Plot:[/cyan] {x_column} vs {y_column}\n")
+            console.print(result)
+        else:
+            print(f"\nScatter Plot: {x_column} vs {y_column}\n")
+            print(result)
+
+        return f"Plotted {x_column} vs {y_column} with regression"
+
+
+class PlotHeatmapOperation(MathOperation):
+    """Create a correlation heatmap of dataset."""
+
+    name = "plot_heatmap"
+    args = ["dataset"]
+    help = "Plot correlation heatmap: plot_heatmap mydata"
+    category = "visualization"
+
+    @classmethod
+    def execute(cls, dataset: str) -> str:
+        """Create correlation heatmap of numeric columns.
+
+        Args:
+            dataset: Name of loaded dataset
+
+        Returns:
+            ASCII correlation heatmap
+        """
+        manager = get_data_manager()
+
+        # Get dataset
+        df = manager.get_dataset(dataset)
+
+        # Get only numeric columns
+        numeric_df = df.select_dtypes(include=[np.number])
+
+        if numeric_df.empty:
+            raise ValueError(f"Dataset '{dataset}' has no numeric columns for correlation")
+
+        # Calculate correlation matrix
+        corr_matrix = numeric_df.corr()
+
+        # Create and display plot
+        result = plot_heatmap(corr_matrix, labels=list(corr_matrix.columns))
+
+        from utils.visual import console, preferences
+        if preferences.colors_enabled:
+            console.print(f"\n[cyan]Correlation Heatmap:[/cyan] {dataset}\n")
+            console.print(result)
+        else:
+            print(f"\nCorrelation Heatmap: {dataset}\n")
+            print(result)
+
+        return f"Plotted correlation heatmap for {dataset}"
