@@ -8,7 +8,20 @@ A modular command-line calculator with plugin support for mathematical operation
 - [Basic Usage](#basic-usage)
 - [Available Operations](#available-operations)
 - [Core Plugins](#core-plugins)
+- [Advanced Mathematical Operations](#advanced-mathematical-operations-phase-51)
+  - [Complex Numbers](#complex-numbers-18-operations)
+  - [Matrix Operations](#matrix-operations-12-operations)
+  - [Calculus](#calculus-12-operations)
+  - [Number Theory](#number-theory-15-operations)
+- [Data Analysis & Visualization](#data-analysis--visualization-phase-52---new)
+  - [Data Import/Export](#data-importexport)
+  - [Statistical Analysis](#statistical-analysis-12-operations)
+  - [Data Transformation](#data-transformation-11-operations)
+  - [Advanced Plotting](#advanced-plotting-ascii-visualizations)
 - [Interactive Mode](#interactive-mode)
+  - [Visual Enhancements](#visual-enhancements-phase-1)
+  - [Interactive Features](#interactive-features-phase-2)
+  - [Session Management & Personalization](#session-management--personalization-phase-3---new)
   - [History Feature](#history-feature)
   - [Previous Result Reference](#previous-result-reference)
   - [Chained Calculations](#chained-calculations)
@@ -43,9 +56,25 @@ pip install -e .
 
 ### Requirements
 
+**Core Dependencies:**
 - Python 3.8 or higher
 - rich >= 14.0.0 (for visual enhancements)
 - prompt_toolkit >= 3.0.0 (for autocompletion and interactive features)
+- psutil >= 5.9.0 (for performance monitoring)
+
+**Advanced Mathematical Operations (Phase 5.1):**
+- numpy >= 1.24.0 (matrix operations, numerical computing)
+- scipy >= 1.10.0 (statistical functions, integration)
+- sympy >= 1.12 (symbolic mathematics, calculus)
+
+**Data Analysis & Visualization (Phase 5.2):**
+- pandas >= 2.0.0 (data manipulation and analysis)
+- matplotlib >= 3.7.0 (plotting backend reference)
+- seaborn >= 0.12.0 (statistical visualization patterns)
+
+**Development Tools:**
+- pytest >= 7.0.0 (testing)
+- pytest-cov >= 4.0.0 (code coverage)
 - uv (optional, but recommended for faster dependency installation)
 
 ## Basic Usage
@@ -76,23 +105,24 @@ To list all available operations:
 python math_cli.py --list-plugins
 ```
 
-Math CLI includes **142+ mathematical operations** across 8 specialized domains:
+Math CLI includes **230+ mathematical operations** organized into 14 logical categories:
 
-**Core Mathematical Operations:**
-- `add`, `subtract`, `multiply`, `divide` - Basic arithmetic
-- `power`, `sqrt`, `factorial` - Advanced arithmetic
-- `sin`, `cos`, `tan` - Trigonometric functions
-- `log`, `abs` - Logarithmic (explicit base argument required) and absolute functions
+The operations are organized into these categories (use `--list-plugins` to see all):
 
-**Extended Operations:** (via core plugins)
-- **Statistical Functions:** `mean`, `median`, `std_dev`, `max`, `min` (variadic)
-- **Complex Numbers:** `complex_add`, `complex_multiply`, `complex_magnitude`
-- **Geometric Calculations:** `area_circle`, `volume_sphere`, `distance`
-- **Unit Conversions:** `celsius_to_fahrenheit`, `miles_to_kilometers`
-- **Combinatorics:** `combinations`, `fibonacci`, `is_prime`
-- **Constants:** `pi`, `e`, `golden_ratio`, `speed_of_light`
-- **Advanced Math:** `ceil`, `floor`, `gcd`, `lcm`
-- **Extended Trigonometry:** `asin`, `sinh`, `atan2`
+1. **Basic Arithmetic** (14 ops) - add, subtract, multiply, divide, power, sqrt, abs
+2. **Trigonometry** (18 ops) - sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, atan2
+3. **Algebra** (12 ops) - log, exp, floor, ceil, round, mod
+4. **Calculus** (12 ops) - derivative, integrate, limit, taylor, gradient, laplacian
+5. **Statistics** (23 ops) - mean, median, stdev, correlation, linear_regression, zscore
+6. **Matrix Operations** (12 ops) - determinant, inverse, eigenvalues, transpose, rank
+7. **Complex Numbers** (18 ops) - cadd, cmul, magnitude, phase, conjugate, csqrt
+8. **Number Theory** (15 ops) - is_prime, gcd, lcm, factorial, fibonacci, euler_phi
+9. **Geometry** (9 ops) - area_circle, volume_sphere, distance, perimeter
+10. **Data Analysis** (12 ops) - load_data, describe_data, correlation_matrix, groupby
+11. **Data Transformation** (11 ops) - filter_data, normalize_data, sort_data, aggregate_data
+12. **Unit Conversions** (38 ops) - celsius_to_fahrenheit, miles_to_kilometers, etc.
+13. **Constants** (7 ops) - pi, e, golden_ratio, speed_of_light, avogadro
+14. **Other Operations** (29 ops) - Various utility functions
 
 ## Core Plugins
 
@@ -130,6 +160,290 @@ python math_cli.py area_circle 5
 ```
 
 **📖 For complete documentation of all core plugins, see: [Core Plugins Guide](docs/Core_Plugins.md)**
+
+## Advanced Mathematical Operations (Phase 5.1)
+
+Math CLI now includes advanced mathematical capabilities for professional scientific computing:
+
+### Complex Numbers (18 operations)
+Comprehensive support for complex number arithmetic and analysis:
+
+```bash
+# Basic complex operations
+python math_cli.py cadd 3 4 1 2              # (3+4i) + (1+2i) = 4+6i
+python math_cli.py cmul 3 4 1 2              # (3+4i) * (1+2i) = -5+10i
+python math_cli.py magnitude 3 4              # |3+4i| = 5.0
+python math_cli.py phase 1 1                  # arg(1+i) = 0.785 rad
+
+# Advanced complex functions
+python math_cli.py csqrt -1 0                 # √(-1) = i
+python math_cli.py cexp 0 3.14159             # e^(iπ) ≈ -1
+```
+
+### Matrix Operations (12 operations)
+Linear algebra operations using NumPy:
+
+```bash
+# Create and analyze matrices
+python math_cli.py det 2 1 2 3 4              # det([[1,2],[3,4]]) = -2
+python math_cli.py transpose 2 3 1 2 3 4 5 6  # Transpose 2x3 matrix
+python math_cli.py eigenvalues 2 4 1 2 3      # Find eigenvalues
+python math_cli.py trace 3 1 0 0 0 2 0 0 0 3  # Trace = 6
+```
+
+### Calculus (12 operations)
+Symbolic and numerical calculus with SymPy:
+
+```bash
+# Derivatives
+python math_cli.py derivative 'x**2' x        # d/dx(x²) = 2*x
+python math_cli.py derivative2 'x**3' x       # d²/dx²(x³) = 6*x
+python math_cli.py gradient 'x**2+y**2' x y   # ∇(x²+y²) = [2*x, 2*y]
+
+# Integration
+python math_cli.py integrate 'x**2' 0 1       # ∫₀¹ x² dx = 0.333
+python math_cli.py integrate_symbolic 'x' x   # ∫ x dx = x²/2
+
+# Limits and series
+python math_cli.py limit 'sin(x)/x' x 0       # lim(x→0) sin(x)/x = 1
+python math_cli.py taylor 'exp(x)' x 0 5      # Taylor series of eˣ
+```
+
+### Number Theory (15 operations)
+Prime numbers, combinatorics, and modular arithmetic:
+
+```bash
+# Prime operations
+python math_cli.py is_prime 17                # True
+python math_cli.py prime_factors 84           # {2: 2, 3: 1, 7: 1}
+python math_cli.py next_prime 100             # 101
+python math_cli.py prime_count 100            # 25 primes ≤ 100
+
+# Combinatorics
+python math_cli.py factorial 5                # 5! = 120
+python math_cli.py fibonacci 10               # F₁₀ = 55
+python math_cli.py combinations 5 3           # C(5,3) = 10
+python math_cli.py euler_phi 12               # φ(12) = 4
+```
+
+## Data Analysis & Visualization (Phase 5.2 - NEW!)
+
+Transform Math CLI into a powerful data analysis tool with support for loading, analyzing, and visualizing datasets:
+
+### Data Import/Export
+
+Load and save datasets from CSV and JSON files:
+
+```bash
+# In interactive mode
+❯ load_data 'sales_data.csv' csv mydata
+Loaded 1000 rows × 5 columns
+
+❯ data_info mydata
+{
+  'rows': 1000,
+  'columns': 5,
+  'column_names': ['date', 'product', 'quantity', 'price', 'region'],
+  'memory_usage': 40000
+}
+
+❯ save_data mydata 'output.json' json
+Saved to output.json
+```
+
+### Statistical Analysis (12 operations)
+
+Perform comprehensive statistical analysis on datasets:
+
+```bash
+# Descriptive statistics
+❯ describe_data mydata
+       quantity      price
+count   1000.00    1000.00
+mean      50.23      99.87
+std       15.42      25.13
+min       10.00      50.00
+max       95.00     150.00
+
+# Correlation analysis
+❯ correlation_matrix mydata pearson
+           quantity  price
+quantity      1.000  0.752
+price         0.752  1.000
+
+# Group by operations
+❯ groupby mydata region mean
+        quantity  price
+North      48.2   95.3
+South      52.1  102.4
+East       49.8   98.7
+West       51.3  103.2
+
+# Outlier detection
+❯ detect_outliers mydata price 1.5
+{
+  'n_outliers': 12,
+  'outlier_percentage': 1.2,
+  'lower_bound': 45.5,
+  'upper_bound': 155.2
+}
+
+# Missing values analysis
+❯ missing_values mydata
+         missing_count  missing_percent
+price              15             1.5
+quantity            3             0.3
+
+# Pivot tables
+❯ pivot_table mydata price region product mean
+              Product_A  Product_B  Product_C
+North            95.2      98.5      102.1
+South           100.3      99.8       97.5
+```
+
+### Data Transformation (11 operations)
+
+Clean, filter, and transform your data:
+
+```bash
+# Filter data
+❯ filter_data mydata price > 100 expensive
+Filtered to 423 rows (from 1000 rows)
+
+# Sort data
+❯ sort_data mydata price false sorted_desc
+Sorted 1000 rows by 'price' (descending)
+
+# Normalize data
+❯ normalize_data mydata minmax normalized
+Normalized 2 columns using minmax
+
+# Handle missing values
+❯ fill_nulls mydata mean filled
+Filled 18 null values with mean
+
+❯ drop_nulls mydata cleaned
+Dropped 18 rows with null values (982 rows remain)
+
+# Sample data
+❯ sample_data mydata 100 sample
+Sampled 100 rows from 1000 total rows
+
+# Add columns
+❯ add_column mydata status active updated
+Added column 'status' with value 'active'
+
+# Aggregate data
+❯ aggregate_data mydata mean
+quantity    50.23
+price       99.87
+```
+
+### Advanced Plotting (ASCII Visualizations)
+
+Create beautiful ASCII visualizations of your data:
+
+```bash
+# Histogram
+❯ python -c "from utils.advanced_plotting import plot_histogram; import numpy as np; print(plot_histogram(np.random.randn(1000), bins=20))"
+
+Histogram (20 bins)
+────────────────────────────────────────────────────────────
+   -3.24--2.92 │███ 8
+   -2.92--2.59 │█████ 15
+   -2.59--2.27 │███████ 25
+   -2.27--1.94 │████████████ 42
+   -1.94--1.62 │███████████████ 56
+   -1.62--1.29 │█████████████████████ 78
+   -1.29--0.97 │████████████████████████████ 102
+   -0.97--0.64 │███████████████████████████████████ 125
+   -0.64--0.32 │████████████████████████████████████████ 145
+   -0.32- 0.01 │████████████████████████████████████████ 145
+────────────────────────────────────────────────────────────
+Min: -3.24, Max: 3.18, Mean: -0.02, Std: 1.01
+
+# Box plot - shows quartiles and outliers
+❯ python -c "from utils.advanced_plotting import plot_boxplot; import numpy as np; print(plot_boxplot(np.random.randn(100)))"
+
+Box Plot: Data
+────────────────────────────────────────────────────────────
+          ├──────────┤│┤──────────────┤
+────────────────────────────────────────────────────────────
+Min: -2.45  Q1: -0.68  Median: 0.05  Q3: 0.72  Max: 2.31
+IQR: 1.40  Outliers: 3
+
+# Scatter plot with regression line
+❯ python -c "from utils.advanced_plotting import plot_scatter_regression; import numpy as np; x = np.array([1,2,3,4,5]); y = np.array([2,4,5,4,5]); print(plot_scatter_regression(x, y))"
+
+Scatter Plot with Linear Regression
+y = 0.600x + 2.200  (R² = 0.643)
+────────────────────────────────────────────────────────────
+          ●
+       ──●──
+    ──●──
+ ──●────
+●──
+────────────────────────────────────────────────────────────
+X: [1.00, 5.00]  Y: [2.00, 5.00]
+
+# Correlation heatmap
+❯ python -c "from utils.advanced_plotting import plot_heatmap; import pandas as pd; df = pd.DataFrame({'A': [1,2,3], 'B': [2,4,6], 'C': [3,2,1]}); print(plot_heatmap(df.corr()))"
+
+Correlation Heatmap
+────────────────────────────────────────────────────────────
+A  │ @ # :
+B  │ # @ +
+C  │ : + @
+────────────────────────────────────────────────────────────
+Scale: -1.0 [  ] 0.0 [:-] +1.0 [@#]
+```
+
+### Complete Data Analysis Workflow Example
+
+Here's a real-world example analyzing sales data:
+
+```bash
+# Start interactive mode
+python math_cli.py --interactive
+
+# Load data
+❯ load_data 'monthly_sales.csv' csv sales
+Loaded 365 rows × 4 columns
+
+# Inspect the data
+❯ data_info sales
+rows: 365, columns: 4
+columns: ['date', 'product', 'revenue', 'units_sold']
+
+# Get statistical summary
+❯ describe_data sales
+
+# Check for missing values
+❯ missing_values sales
+No missing values found
+
+# Filter to high-revenue transactions
+❯ filter_data sales revenue > 1000 high_value
+Filtered to 89 rows
+
+# Analyze by product
+❯ groupby sales product sum
+              revenue  units_sold
+Product_A    125000      5234
+Product_B     98500      4102
+Product_C    145000      6789
+
+# Calculate correlation
+❯ correlation_matrix sales
+
+# Detect outliers in revenue
+❯ detect_outliers sales revenue 1.5
+Found 8 outliers (2.2% of data)
+
+# Export results
+❯ save_data high_value 'high_value_sales.csv' csv
+Saved to high_value_sales.csv
+```
 
 ## Interactive Mode
 
