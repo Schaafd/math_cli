@@ -27,7 +27,8 @@ def test_main_lists_plugins(capsys):
     exit_code = run_cli(["math_cli.py", "--list-plugins"])
     assert exit_code == 0
     out = capsys.readouterr().out
-    assert "Available operations" in out
+    # Check for new categorized format
+    assert "MATH CLI - AVAILABLE OPERATIONS" in out
     assert "add" in out
 
 

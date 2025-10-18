@@ -3,6 +3,7 @@ class MathOperation:
     name = None
     args = []
     help = "Base operation"
+    category = "general"  # Category for help organization
     variadic = False  # Set to True for operations that accept variable number of arguments
 
     @classmethod
@@ -17,5 +18,6 @@ class MathOperation:
             'name': cls.name,
             'args': cls.args,
             'help': cls.help,
+            'category': getattr(cls, 'category', 'general'),
             'variadic': cls.variadic
         }
