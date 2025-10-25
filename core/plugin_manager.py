@@ -4,7 +4,7 @@ import pkgutil
 import inspect
 import sys
 from pathlib import Path
-from typing import Dict, List, Type
+from typing import Dict, List, Type, Any, Tuple
 from core.base_operations import MathOperation
 
 class PluginManager:
@@ -13,6 +13,7 @@ class PluginManager:
     def __init__(self):
         self.operations: Dict[str, Type[MathOperation]] = {}
         self.plugin_dirs = []
+        self._variable_substitution_enabled = True
 
     def register_operation(self, operation_class: Type[MathOperation]) -> None:
         """Register a math operation."""
@@ -78,10 +79,104 @@ class PluginManager:
         """Return metadata for all registered operations."""
         return {name: op.get_metadata() for name, op in self.operations.items()}
 
+    def _convert_string_to_type(self, value: str) -> Any:
+        """Convert string to appropriate type (number or boolean).
+
+        Args:
+            value: String value to convert
+
+        Returns:
+            Converted value or original string
+        """
+        # Try to convert to number
+        try:
+            if '.' not in value and 'e' not in value.lower():
+                return int(value)
+            else:
+                return float(value)
+        except ValueError:
+            # Check for boolean (only 'true' and 'false', not 'yes' and 'no')
+            if value.lower() == 'true':
+                return True
+            elif value.lower() == 'false':
+                return False
+            # Otherwise keep as string
+            return value
+
+    def _substitute_variables(self, args: Tuple, kwargs: Dict) -> Tuple[Tuple, Dict]:
+        """Substitute variable references with their values and convert types.
+
+        Args:
+            args: Positional arguments
+            kwargs: Keyword arguments
+
+        Returns:
+            Tuple of (substituted_args, substituted_kwargs)
+        """
+        if not self._variable_substitution_enabled:
+            return args, kwargs
+
+        try:
+            from core.variables import get_variable_store
+            store = get_variable_store()
+
+            # Substitute in args
+            substituted_args = []
+            for arg in args:
+                if isinstance(arg, str) and arg.startswith('$'):
+                    # Variable reference
+                    try:
+                        substituted_args.append(store.get(arg))
+                    except NameError:
+                        # Variable not found, keep as-is (might be literal $)
+                        substituted_args.append(arg)
+                elif isinstance(arg, str):
+                    # Try to convert string literals to appropriate types
+                    substituted_args.append(self._convert_string_to_type(arg))
+                else:
+                    substituted_args.append(arg)
+
+            # Substitute in kwargs
+            substituted_kwargs = {}
+            for key, value in kwargs.items():
+                if isinstance(value, str) and value.startswith('$'):
+                    # Variable reference
+                    try:
+                        substituted_kwargs[key] = store.get(value)
+                    except NameError:
+                        # Variable not found, keep as-is
+                        substituted_kwargs[key] = value
+                elif isinstance(value, str):
+                    # Try to convert string literals to appropriate types
+                    substituted_kwargs[key] = self._convert_string_to_type(value)
+                else:
+                    substituted_kwargs[key] = value
+
+            return tuple(substituted_args), substituted_kwargs
+
+        except ImportError:
+            # Variable system not available, skip substitution
+            return args, kwargs
+
     def execute_operation(self, operation_name: str, *args, **kwargs):
-        """Execute a registered operation."""
+        """Execute a registered operation with variable substitution.
+
+        Args:
+            operation_name: Name of the operation to execute
+            *args: Positional arguments (may include variable references like $x)
+            **kwargs: Keyword arguments (may include variable references)
+
+        Returns:
+            Operation result
+
+        Raises:
+            ValueError: If operation is unknown
+        """
         if operation_name not in self.operations:
             raise ValueError(f"Unknown operation: {operation_name}")
 
+        # Substitute variables in arguments
+        substituted_args, substituted_kwargs = self._substitute_variables(args, kwargs)
+
         operation_class = self.operations[operation_name]
-        return operation_class.execute(*args, **kwargs)
+        return operation_class.execute(*substituted_args, **substituted_kwargs)
