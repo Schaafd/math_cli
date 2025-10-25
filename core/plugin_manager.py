@@ -159,7 +159,7 @@ class PluginManager:
             return args, kwargs
 
     def execute_operation(self, operation_name: str, *args, **kwargs):
-        """Execute a registered operation with variable substitution.
+        """Execute a registered operation or user-defined function with variable substitution.
 
         Args:
             operation_name: Name of the operation to execute
@@ -172,11 +172,62 @@ class PluginManager:
         Raises:
             ValueError: If operation is unknown
         """
-        if operation_name not in self.operations:
-            raise ValueError(f"Unknown operation: {operation_name}")
+        # Check if it's a built-in operation
+        if operation_name in self.operations:
+            # Substitute variables in arguments
+            substituted_args, substituted_kwargs = self._substitute_variables(args, kwargs)
 
-        # Substitute variables in arguments
-        substituted_args, substituted_kwargs = self._substitute_variables(args, kwargs)
+            operation_class = self.operations[operation_name]
+            return operation_class.execute(*substituted_args, **substituted_kwargs)
 
-        operation_class = self.operations[operation_name]
-        return operation_class.execute(*substituted_args, **substituted_kwargs)
+        # Check if it's a user-defined function
+        try:
+            from core.user_functions import get_function_registry
+            registry = get_function_registry()
+
+            if registry.exists(operation_name):
+                # Substitute variables in arguments
+                substituted_args, substituted_kwargs = self._substitute_variables(args, kwargs)
+
+                # Call the user function
+                func = registry.get(operation_name)
+
+                # Check argument count
+                if len(substituted_args) != len(func.parameters):
+                    expected = len(func.parameters)
+                    got = len(substituted_args)
+                    raise ValueError(
+                        f"Function '{operation_name}' expects {expected} argument(s), got {got}"
+                    )
+
+                # Create new variable scope
+                from core.variables import get_variable_store
+                store = get_variable_store()
+                store.push_scope()
+
+                try:
+                    # Bind parameters to arguments
+                    for param, arg in zip(func.parameters, substituted_args):
+                        store.set(param, arg)
+
+                    # Execute function body
+                    tokens = func.body.split()
+                    if not tokens:
+                        raise ValueError(f"Function '{operation_name}' has empty body")
+
+                    body_operation = tokens[0]
+                    body_args = tokens[1:] if len(tokens) > 1 else []
+
+                    # Recursively execute the operation
+                    result = self.execute_operation(body_operation, *body_args)
+                    return result
+
+                finally:
+                    # Always pop the scope
+                    store.pop_scope()
+
+        except ImportError:
+            pass  # User functions not available
+
+        # Operation not found
+        raise ValueError(f"Unknown operation: {operation_name}")
