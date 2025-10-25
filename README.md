@@ -18,6 +18,11 @@ A modular command-line calculator with plugin support for mathematical operation
   - [Statistical Analysis](#statistical-analysis-12-operations)
   - [Data Transformation](#data-transformation-11-operations)
   - [CLI Plotting Operations](#cli-plotting-operations-phase-525---new)
+- [Programmability & Scripting](#programmability--scripting-phase-53---new)
+  - [Variables](#variables-6-operations)
+  - [Control Flow](#control-flow-13-operations)
+  - [User-Defined Functions](#user-defined-functions-3-operations)
+  - [Script Files](#script-files-2-operations)
 - [Interactive Mode](#interactive-mode)
   - [Visual Enhancements](#visual-enhancements-phase-1)
   - [Interactive Features](#interactive-features-phase-2)
@@ -105,7 +110,7 @@ To list all available operations:
 python math_cli.py --list-plugins
 ```
 
-Math CLI includes **235+ mathematical operations** organized into 15 logical categories:
+Math CLI includes **260+ mathematical operations** organized into 16 logical categories:
 
 The operations are organized into these categories (use `--list-plugins` to see all):
 
@@ -121,9 +126,10 @@ The operations are organized into these categories (use `--list-plugins` to see 
 10. **Data Analysis** (12 ops) - load_data, describe_data, correlation_matrix, groupby
 11. **Data Transformation** (11 ops) - filter_data, normalize_data, sort_data, aggregate_data
 12. **Visualization** (8 ops) - plot_hist, plot_box, plot_scatter, plot_heatmap, plot, plot_line, plot_bar, plot_data
-13. **Unit Conversions** (38 ops) - celsius_to_fahrenheit, miles_to_kilometers, etc.
-14. **Constants** (7 ops) - pi, e, golden_ratio, speed_of_light, avogadro
-15. **Other Operations** (26 ops) - Various utility functions
+13. **Scripting** (24 ops) - Variables (6), Control Flow (13), Functions (3), Scripts (2)
+14. **Unit Conversions** (38 ops) - celsius_to_fahrenheit, miles_to_kilometers, etc.
+15. **Constants** (7 ops) - pi, e, golden_ratio, speed_of_light, avogadro
+16. **Other Operations** (23 ops) - Various utility functions
 
 ## Core Plugins
 
@@ -481,6 +487,284 @@ Found 8 outliers (2.2% of data)
 # Export results
 ❯ save_data high_value 'high_value_sales.csv' csv
 Saved to high_value_sales.csv
+```
+
+## Programmability & Scripting (Phase 5.3 - NEW!)
+
+Math CLI now supports variables, control flow, user-defined functions, and script files, transforming it into a programmable calculator!
+
+### Variables (6 operations)
+
+Store and reuse values across calculations:
+
+```bash
+# Set variables
+❯ set x 10
+$x = 10
+
+❯ set y 20
+$y = 20
+
+# Use variables in calculations
+❯ add $x $y
+30
+
+❯ multiply $x $y
+200
+
+# List all variables
+❯ vars
+Variables:
+--------------------------------------------------
+  $x               = 10
+  $y               = 20
+
+# Persistent variables (saved across sessions)
+❯ persist pi 3.14159
+$pi = 3.14159 (persistent)
+
+# Delete variables
+❯ unset x
+Deleted variable $x
+
+# Clear all variables
+❯ clear_vars
+Cleared all session variables
+```
+
+**Available Variable Operations:**
+- `set <name> <value>` - Set variable value
+- `persist <name> <value>` - Set persistent variable (saved to ~/.mathcli/variables.json)
+- `get <name>` - Get variable value
+- `vars` - List all variables
+- `unset <name>` - Delete variable
+- `clear_vars [true|false]` - Clear variables (optionally including persistent)
+
+### Control Flow (13 operations)
+
+Make decisions and create conditional logic:
+
+#### Comparisons (6 operations)
+
+```bash
+# Comparison operations
+❯ eq 5 5           # Equal
+true
+
+❯ neq 5 10         # Not equal
+true
+
+❯ gt 10 5          # Greater than
+true
+
+❯ gte 10 10        # Greater or equal
+true
+
+❯ lt 5 10          # Less than
+true
+
+❯ lte 5 5          # Less or equal
+true
+```
+
+#### Logical Operations (3 operations)
+
+```bash
+# Logical operations
+❯ and true false
+false
+
+❯ or true false
+true
+
+❯ not true
+false
+```
+
+#### Conditionals (1 operation)
+
+```bash
+# If/then/else
+❯ set x 15
+❯ if (gt $x 10) "big" "small"
+big
+
+# With variables
+❯ set threshold 100
+❯ set value 150
+❯ if (gt $value $threshold) "Above threshold" "Below threshold"
+Above threshold
+```
+
+#### Type Checking (3 operations)
+
+```bash
+❯ is_number 42
+true
+
+❯ is_string "hello"
+true
+
+❯ is_bool true
+true
+```
+
+### User-Defined Functions (3 operations)
+
+Create custom reusable functions:
+
+```bash
+# Define a function
+❯ def square x = multiply $x $x
+✓ Defined function: square($x) = multiply $x $x
+
+# Call the function
+❯ square 7
+49
+
+# Define function with multiple parameters
+❯ def hypotenuse a b = sqrt (add (multiply $a $a) (multiply $b $b))
+❯ hypotenuse 3 4
+5.0
+
+# List all functions
+❯ funcs
+User-defined functions:
+----------------------------------------------------------------------
+  hypotenuse($a, $b)
+    = sqrt (add (multiply $a $a) (multiply $b $b))
+  square($x)
+    = multiply $x $x
+
+# Delete a function
+❯ undef square
+✓ Deleted function: square
+```
+
+**Available Function Operations:**
+- `def <name> <params...> = <body>` - Define function
+- `funcs` - List all user-defined functions
+- `undef <name>` - Delete function
+
+### Script Files (2 operations)
+
+Execute sequences of commands from .mathcli files:
+
+#### Example Script File (compound_interest.mathcli)
+
+```mathcli
+# Compound Interest Calculator
+# Save this as compound_interest.mathcli
+
+# Initial values
+set principal 1000
+set rate 1.05
+set years 5
+
+# Year 1
+set amount = multiply $principal $rate
+set principal $amount
+
+# Year 2
+set amount = multiply $principal $rate
+set principal $amount
+
+# Display result
+set final $principal
+```
+
+#### Running Scripts
+
+```bash
+# Execute a script file
+❯ run compound_interest.mathcli
+✓ Script completed: 8 commands executed
+
+# Run with verbose output (shows each line)
+❯ run compound_interest.mathcli true
+[1] # Compound Interest Calculator
+[3] set principal 1000
+  → $principal = 1000
+[4] set rate 1.05
+  → $rate = 1.05
+...
+✓ Script completed: 8 commands executed
+
+# Execute inline script
+❯ eval 'set x 10; add $x 5'
+15
+```
+
+### Complete Scripting Example
+
+Here's a comprehensive example combining all Phase 5.3 features:
+
+**File: math_toolkit.mathcli**
+```mathcli
+# Math Toolkit Script
+# Demonstrates variables, functions, and control flow
+
+# Define utility functions
+def square x = multiply $x $x
+def double x = multiply $x 2
+def is_even n = eq (mod $n 2) 0
+
+# Set test values
+set a 5
+set b 10
+set c 15
+
+# Perform calculations
+square $a
+double $b
+
+# Conditional logic
+gt $c $b
+if (gt $c $b) "c is bigger" "b is bigger"
+
+# Use functions with variables
+set result = square $a
+multiply $result 2
+```
+
+**Running the script:**
+```bash
+❯ run math_toolkit.mathcli
+✓ Script completed: 12 commands executed
+```
+
+### Real-World Use Cases
+
+**1. Financial Calculations**
+```mathcli
+# mortgage_calculator.mathcli
+set loan_amount 200000
+set annual_rate 0.05
+set monthly_rate = divide $annual_rate 12
+set months 360
+
+# Calculate monthly payment (simplified)
+set payment = multiply $loan_amount $monthly_rate
+```
+
+**2. Data Processing Pipeline**
+```mathcli
+# data_pipeline.mathcli
+load_data raw_data.csv csv data
+describe_data data
+filter_data data revenue > 1000 filtered
+save_data filtered processed_data.csv csv
+plot_hist filtered revenue 20
+```
+
+**3. Scientific Calculations**
+```mathcli
+# physics_calc.mathcli
+def kinetic_energy mass velocity = multiply (multiply 0.5 $mass) (multiply $velocity $velocity)
+
+set mass 10
+set velocity 5
+kinetic_energy $mass $velocity
 ```
 
 ## Interactive Mode
