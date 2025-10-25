@@ -23,6 +23,9 @@ A modular command-line calculator with plugin support for mathematical operation
   - [Control Flow](#control-flow-13-operations)
   - [User-Defined Functions](#user-defined-functions-3-operations)
   - [Script Files](#script-files-2-operations)
+- [Export & Integration](#export--integration-phase-54---new)
+  - [Session Export](#session-export-6-operations)
+  - [Export Formats](#export-formats)
 - [Interactive Mode](#interactive-mode)
   - [Visual Enhancements](#visual-enhancements-phase-1)
   - [Interactive Features](#interactive-features-phase-2)
@@ -110,7 +113,7 @@ To list all available operations:
 python math_cli.py --list-plugins
 ```
 
-Math CLI includes **260+ mathematical operations** organized into 16 logical categories:
+Math CLI includes **266+ mathematical operations** organized into 17 logical categories:
 
 The operations are organized into these categories (use `--list-plugins` to see all):
 
@@ -127,9 +130,10 @@ The operations are organized into these categories (use `--list-plugins` to see 
 11. **Data Transformation** (11 ops) - filter_data, normalize_data, sort_data, aggregate_data
 12. **Visualization** (8 ops) - plot_hist, plot_box, plot_scatter, plot_heatmap, plot, plot_line, plot_bar, plot_data
 13. **Scripting** (24 ops) - Variables (6), Control Flow (13), Functions (3), Scripts (2)
-14. **Unit Conversions** (38 ops) - celsius_to_fahrenheit, miles_to_kilometers, etc.
-15. **Constants** (7 ops) - pi, e, golden_ratio, speed_of_light, avogadro
-16. **Other Operations** (23 ops) - Various utility functions
+14. **Integration** (6 ops) - export_session, import_session, export_vars, import_vars, export_funcs, import_funcs
+15. **Unit Conversions** (38 ops) - celsius_to_fahrenheit, miles_to_kilometers, etc.
+16. **Constants** (7 ops) - pi, e, golden_ratio, speed_of_light, avogadro
+17. **Other Operations** (23 ops) - Various utility functions
 
 ## Core Plugins
 
@@ -765,6 +769,179 @@ def kinetic_energy mass velocity = multiply (multiply 0.5 $mass) (multiply $velo
 set mass 10
 set velocity 5
 kinetic_energy $mass $velocity
+```
+
+## Export & Integration (Phase 5.4) - NEW
+
+Phase 5.4 adds comprehensive export and integration capabilities, allowing you to save and share your work in multiple formats.
+
+### Session Export (6 operations)
+
+Export and import your entire session (variables, functions, history) or individual components.
+
+#### Export Session
+
+Export your complete session including variables and user-defined functions:
+
+```bash
+# Export entire session as JSON (default)
+python math_cli.py export_session my_session.json
+
+# Export as Markdown for documentation
+python math_cli.py export_session report.md markdown
+
+# Export as LaTeX for academic papers
+python math_cli.py export_session paper.tex latex
+```
+
+#### Import Session
+
+Restore a previously saved session:
+
+```bash
+# Import session from JSON file
+python math_cli.py import_session my_session.json
+```
+
+#### Export/Import Variables
+
+Export or import only variables:
+
+```bash
+# Export variables to JSON
+python math_cli.py export_vars my_vars.json
+
+# Import variables from JSON
+python math_cli.py import_vars my_vars.json
+```
+
+#### Export/Import Functions
+
+Export or import only user-defined functions:
+
+```bash
+# Export functions to JSON
+python math_cli.py export_funcs my_funcs.json
+
+# Import functions from JSON
+python math_cli.py import_funcs my_funcs.json
+```
+
+### Export Formats
+
+Phase 5.4 supports three export formats for sessions:
+
+#### 1. JSON Format (Default)
+
+Machine-readable format perfect for session backup and restoration:
+
+```json
+{
+  "exported_at": "2025-01-15T10:30:00",
+  "version": "1.0",
+  "variables": {
+    "x": 10,
+    "pi": 3.14159,
+    "result": 42
+  },
+  "functions": {
+    "square": {
+      "parameters": ["x"],
+      "body": "multiply $x $x",
+      "description": "Square a number"
+    }
+  }
+}
+```
+
+#### 2. Markdown Format
+
+Human-readable format ideal for documentation and sharing:
+
+```markdown
+# Math CLI Session
+
+*Exported: 2025-01-15 10:30:00*
+
+## Variables
+
+- `$x` = `10`
+- `$pi` = `3.14159`
+- `$result` = `42`
+
+## User-Defined Functions
+
+- **square**($x) = `multiply $x $x`
+```
+
+#### 3. LaTeX Format
+
+Academic format for papers and reports:
+
+```latex
+\documentclass{article}
+\usepackage{amsmath}
+\title{Math CLI Session}
+\date{2025-01-15}
+\begin{document}
+\maketitle
+
+\section{Variables}
+\begin{itemize}
+\item $$x = 10$$
+\item $$pi = 3.14159$$
+\end{itemize}
+
+\end{document}
+```
+
+### Real-World Export Use Cases
+
+**1. Scientific Collaboration**
+```bash
+# Save analysis session for colleagues
+python math_cli.py set alpha 0.05
+python math_cli.py set confidence 95
+python math_cli.py export_session analysis.json
+
+# Colleague imports and continues work
+python math_cli.py import_session analysis.json
+```
+
+**2. Report Generation**
+```bash
+# Perform calculations
+python math_cli.py def roi investment return = multiply (divide $return $investment) 100
+python math_cli.py set investment 10000
+python math_cli.py set returns 12000
+python math_cli.py roi $investment $returns
+
+# Export as Markdown for documentation
+python math_cli.py export_session report.md markdown
+```
+
+**3. Reusable Function Libraries**
+```bash
+# Create library of utility functions
+python math_cli.py def celsius_to_kelvin c = add $c 273.15
+python math_cli.py def fahrenheit_to_celsius f = multiply (subtract $f 32) 0.5556
+
+# Export for reuse in other sessions
+python math_cli.py export_funcs temperature_utils.json
+
+# Later, in a new session
+python math_cli.py import_funcs temperature_utils.json
+```
+
+**4. Academic Papers**
+```bash
+# Export calculations as LaTeX
+python math_cli.py set sample_size 100
+python math_cli.py set mean 42.5
+python math_cli.py set stdev 8.2
+python math_cli.py export_session results.tex latex
+
+# Include in your LaTeX document
 ```
 
 ## Interactive Mode
