@@ -43,7 +43,7 @@ def test_main_accepts_additional_plugin_directory(tmp_path, capsys):
     plugin_dir = tmp_path / "custom_plugins"
     plugin_dir.mkdir()
 
-    plugin_module = plugin_dir / "double_value.py"
+    plugin_module = plugin_dir / "double_value_plugin.py"
     plugin_module.write_text(
         """
 from core.base_operations import MathOperation

@@ -19,7 +19,7 @@ class AddOneOperation(MathOperation):
     def execute(cls, x):
         return x + 1
 """
-    (plugin_dir / "my_custom.py").write_text(plugin_code)
+    (plugin_dir / "my_custom_plugin.py").write_text(plugin_code)
 
     pm = PluginManager()
     pm.add_plugin_directory(str(plugin_dir))
