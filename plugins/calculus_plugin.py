@@ -1,9 +1,99 @@
 """Calculus operations plugin for Math CLI using SymPy."""
+from typing import Iterable, Set
 
 from core.base_operations import MathOperation
 import sympy as sp
+from sympy.parsing.sympy_parser import (
+    parse_expr,
+    standard_transformations,
+    implicit_multiplication_application,
+)
 from scipy import integrate
-import numpy as np
+
+
+ALLOWED_FUNCTIONS = {
+    "sin": sp.sin,
+    "cos": sp.cos,
+    "tan": sp.tan,
+    "asin": sp.asin,
+    "acos": sp.acos,
+    "atan": sp.atan,
+    "sinh": sp.sinh,
+    "cosh": sp.cosh,
+    "tanh": sp.tanh,
+    "asinh": sp.asinh,
+    "acosh": sp.acosh,
+    "atanh": sp.atanh,
+    "exp": sp.exp,
+    "log": sp.log,
+    "ln": sp.log,
+    "sqrt": sp.sqrt,
+    "abs": sp.Abs,
+    "Abs": sp.Abs,
+}
+
+ALLOWED_CONSTANTS = {
+    "pi": sp.pi,
+    "E": sp.E,
+    "I": sp.I,
+    "oo": sp.oo,
+}
+
+TRANSFORMATIONS = standard_transformations + (implicit_multiplication_application,)
+
+
+def _is_safe_symbol_name(name: str) -> bool:
+    """Return True if the symbol name is safe to construct."""
+    if not name or name.startswith("_"):
+        return False
+    first = name[0]
+    if not first.isalpha():
+        return False
+    return all(ch.isalnum() or ch == "_" for ch in name)
+
+
+def _build_symbol_factory(allowed_symbols: Set[str]):
+    """Create a Symbol factory that only allows safe symbol names."""
+
+    def _symbol(name: str, *args, **kwargs):
+        if args or kwargs:
+            raise ValueError("Direct Symbol construction is not allowed")
+        if name in allowed_symbols or _is_safe_symbol_name(name):
+            allowed_symbols.add(name)
+            return sp.Symbol(name)
+        raise ValueError(f"Unknown symbol '{name}' in expression")
+
+    return _symbol
+
+
+def _parse_expression(expression: str, allowed_symbols: Iterable[str] | None = None) -> sp.Expr:
+    """Parse a mathematical expression using a restricted SymPy parser."""
+
+    allowed_set: Set[str] = set(allowed_symbols or [])
+    local_dict = {name: sp.Symbol(name) for name in allowed_set}
+    local_dict.update(ALLOWED_FUNCTIONS)
+    local_dict.update(ALLOWED_CONSTANTS)
+    local_dict["Symbol"] = _build_symbol_factory(allowed_set)
+    local_dict["Integer"] = sp.Integer
+    local_dict["Float"] = sp.Float
+    local_dict["Rational"] = sp.Rational
+
+    try:
+        expr = parse_expr(
+            expression,
+            local_dict=local_dict,
+            global_dict={"__builtins__": {}},
+            transformations=TRANSFORMATIONS,
+        )
+    except Exception as exc:  # pragma: no cover - parse_expr raises varied exceptions
+        raise ValueError(f"Invalid expression: {exc}") from exc
+
+    for symbol in expr.free_symbols:
+        name = str(symbol)
+        if name not in allowed_set and not _is_safe_symbol_name(name):
+            raise ValueError(f"Expression uses disallowed symbol '{name}'")
+
+    return expr
 
 
 class DerivativeOperation(MathOperation):
@@ -30,7 +120,7 @@ class DerivativeOperation(MathOperation):
         """
         try:
             var = sp.Symbol(variable)
-            expr = sp.sympify(expression)
+            expr = _parse_expression(expression, [variable])
             derivative = sp.diff(expr, var)
             return str(derivative)
         except Exception as e:
@@ -58,7 +148,7 @@ class IntegrateSymbolicOperation(MathOperation):
         """
         try:
             var = sp.Symbol(variable)
-            expr = sp.sympify(expression)
+            expr = _parse_expression(expression, [variable])
             integral = sp.integrate(expr, var)
             return str(integral)
         except Exception as e:
@@ -88,7 +178,7 @@ class IntegrateDefiniteOperation(MathOperation):
         try:
             # Create a lambda function from the string
             x = sp.Symbol('x')
-            expr = sp.sympify(function)
+            expr = _parse_expression(function, ['x'])
             f = sp.lambdify(x, expr, 'numpy')
 
             result, error = integrate.quad(f, lower, upper)
@@ -119,7 +209,7 @@ class LimitOperation(MathOperation):
         """
         try:
             var = sp.Symbol(variable)
-            expr = sp.sympify(expression)
+            expr = _parse_expression(expression, [variable])
             lim = sp.limit(expr, var, point)
             return str(lim)
         except Exception as e:
@@ -149,7 +239,7 @@ class TaylorSeriesOperation(MathOperation):
         """
         try:
             var = sp.Symbol(variable)
-            expr = sp.sympify(expression)
+            expr = _parse_expression(expression, [variable])
             series = sp.series(expr, var, point, order)
             # Remove O() term
             series = series.removeO()
@@ -180,7 +270,8 @@ class PartialDerivativeOperation(MathOperation):
         """
         try:
             var = sp.Symbol(variable)
-            expr = sp.sympify(expression)
+            symbols = [variable, *other_vars]
+            expr = _parse_expression(expression, symbols)
             partial = sp.diff(expr, var)
             return str(partial)
         except Exception as e:
@@ -210,7 +301,7 @@ class GradientOperation(MathOperation):
             raise ValueError("Need at least one variable")
 
         try:
-            expr = sp.sympify(expression)
+            expr = _parse_expression(expression, variables)
             gradient = []
             for var_name in variables:
                 var = sp.Symbol(var_name)
@@ -242,7 +333,7 @@ class SecondDerivativeOperation(MathOperation):
         """
         try:
             var = sp.Symbol(variable)
-            expr = sp.sympify(expression)
+            expr = _parse_expression(expression, [variable])
             derivative = sp.diff(expr, var, 2)
             return str(derivative)
         except Exception as e:
@@ -272,7 +363,7 @@ class LaplacianOperation(MathOperation):
             raise ValueError("Need at least one variable")
 
         try:
-            expr = sp.sympify(expression)
+            expr = _parse_expression(expression, variables)
             laplacian = 0
             for var_name in variables:
                 var = sp.Symbol(var_name)
@@ -302,7 +393,7 @@ class SimplifyOperation(MathOperation):
             Simplified expression
         """
         try:
-            expr = sp.sympify(expression)
+            expr = _parse_expression(expression)
             simplified = sp.simplify(expr)
             return str(simplified)
         except Exception as e:
@@ -328,7 +419,7 @@ class ExpandOperation(MathOperation):
             Expanded expression
         """
         try:
-            expr = sp.sympify(expression)
+            expr = _parse_expression(expression)
             expanded = sp.expand(expr)
             return str(expanded)
         except Exception as e:
@@ -354,7 +445,7 @@ class FactorOperation(MathOperation):
             Factored expression
         """
         try:
-            expr = sp.sympify(expression)
+            expr = _parse_expression(expression)
             factored = sp.factor(expr)
             return str(factored)
         except Exception as e:

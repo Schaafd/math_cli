@@ -1,8 +1,7 @@
 import importlib
-import os
-import pkgutil
+import importlib.util
 import inspect
-import sys
+import pkgutil
 from pathlib import Path
 from typing import Dict, List, Type, Any, Tuple
 from core.base_operations import MathOperation
@@ -12,7 +11,7 @@ class PluginManager:
 
     def __init__(self):
         self.operations: Dict[str, Type[MathOperation]] = {}
-        self.plugin_dirs = []
+        self.plugin_dirs: List[Path] = []
         self._variable_substitution_enabled = True
 
     def register_operation(self, operation_class: Type[MathOperation]) -> None:
@@ -27,11 +26,9 @@ class PluginManager:
 
     def add_plugin_directory(self, directory: str) -> None:
         """Add a directory to search for plugins."""
-        if directory not in self.plugin_dirs and os.path.isdir(directory):
-            self.plugin_dirs.append(directory)
-            # Add to Python path so plugins can be imported
-            if directory not in sys.path:
-                sys.path.insert(0, directory)
+        path = Path(directory).resolve()
+        if path not in self.plugin_dirs and path.is_dir():
+            self.plugin_dirs.append(path)
 
     def discover_plugins(self) -> None:
         """Discover and load plugins from the plugins directory."""
@@ -40,14 +37,79 @@ class PluginManager:
 
         # Then load from additional plugin directories
         for plugin_dir in self.plugin_dirs:
-            for finder, name, ispkg in pkgutil.iter_modules([plugin_dir]):
-                if name == "plugin_template":
-                    continue
-                try:
-                    module = importlib.import_module(name)
-                    self._register_operations_from_module(module)
-                except ImportError as e:
-                    print(f"Error importing plugin {name}: {e}")
+            self._load_external_plugins(plugin_dir)
+
+    def _load_external_plugins(self, plugin_dir: Path) -> None:
+        """Safely load plugins from a user-specified directory."""
+
+        for module_path in plugin_dir.glob("*.py"):
+            if not module_path.is_file():
+                continue
+            if module_path.name in {"__init__.py", "plugin_template.py"}:
+                continue
+            if not module_path.name.endswith("_plugin.py"):
+                continue
+
+            module_name = module_path.stem
+
+            if self._is_name_conflicting(module_name):
+                print(
+                    f"Skipping plugin {module_path.name}: name collides with existing module"
+                )
+                continue
+
+            try:
+                module = self._import_module_from_path(module_path)
+            except ImportError as e:
+                print(f"Error importing plugin {module_path.name}: {e}")
+                continue
+
+            self._register_operations_from_module(module)
+
+    def _is_name_conflicting(self, module_name: str) -> bool:
+        """Return True if the module name collides with stdlib or project modules."""
+
+        try:
+            spec = importlib.util.find_spec(module_name)
+        except (ImportError, AttributeError, ValueError):
+            return False
+
+        if spec is None:
+            return False
+
+        origin = getattr(spec, "origin", None)
+        if origin in (None, "built-in", "frozen"):
+            return True
+
+        try:
+            origin_path = Path(origin).resolve()
+        except (TypeError, OSError):
+            return True
+
+        project_root = Path(__file__).resolve().parent.parent
+        if project_root in origin_path.parents:
+            return True
+
+        return True
+
+    def _import_module_from_path(self, module_path: Path):
+        """Import a module from the given path without altering sys.path."""
+
+        unique_name = (
+            f"math_cli.external_plugins.{module_path.stem}_{abs(hash(module_path.resolve()))}"
+        )
+        spec = importlib.util.spec_from_file_location(unique_name, module_path)
+
+        if not spec or not spec.loader:
+            raise ImportError("Unable to create module spec")
+
+        module = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)  # type: ignore[union-attr]
+        except Exception as exc:  # pragma: no cover - importlib surfaces various errors
+            raise ImportError(exc) from exc
+
+        return module
 
     def _load_plugins_from_module(self, module_name: str) -> None:
         """Load plugins from a specific module."""
