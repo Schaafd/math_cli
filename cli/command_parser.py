@@ -1,9 +1,54 @@
-import argparse
-from typing import Dict, List, Any
+"""Utilities for building and validating command line parsers."""
 
-def create_argument_parser(operations_metadata: Dict) -> argparse.ArgumentParser:
-    """Create and configure argument parser based on registered operations."""
-    parser = argparse.ArgumentParser(description='Perform mathematical operations')
+import argparse
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+
+
+def create_global_argument_parser() -> argparse.ArgumentParser:
+    """Create a parser that understands CLI-wide options.
+
+    The returned parser intentionally disables the automatic ``-h/--help``
+    handling so that it can be safely reused as a parent for operation
+    specific parsers. This keeps the help output consistent while allowing the
+    main CLI to parse the global flags up-front.
+    """
+
+    parser = argparse.ArgumentParser(add_help=False)
+
+    parser.add_argument('--interactive', '-i', action='store_true', help='Run in interactive mode')
+    parser.add_argument('--plugin-dir', action='append', help='Directory containing additional plugins')
+    parser.add_argument('--list-plugins', action='store_true', help='List available operation plugins')
+
+    # Accessibility options
+    parser.add_argument('--no-color', action='store_true', help='Disable colored output (accessibility)')
+    parser.add_argument('--no-animations', action='store_true', help='Disable animations (accessibility)')
+    parser.add_argument('--screen-reader', action='store_true', help='Enable screen reader mode (accessibility)')
+    parser.add_argument('--high-contrast', action='store_true', help='Enable high contrast mode (accessibility)')
+
+    return parser
+
+
+def parse_global_args(
+    parser: argparse.ArgumentParser,
+    argv: Sequence[str],
+) -> Tuple[argparse.Namespace, List[str]]:
+    """Parse known global arguments and return the remainder of ``argv``."""
+
+    return parser.parse_known_args(argv)
+
+
+def create_argument_parser(
+    operations_metadata: Dict[str, Dict[str, Any]],
+    *,
+    global_parser: Optional[argparse.ArgumentParser] = None,
+) -> argparse.ArgumentParser:
+    """Create and configure an argument parser based on registered operations."""
+
+    parents: Iterable[argparse.ArgumentParser] = (global_parser,) if global_parser else ()
+    parser = argparse.ArgumentParser(
+        description='Perform mathematical operations',
+        parents=list(parents),
+    )
     subparsers = parser.add_subparsers(dest='operation', help='Operation to perform')
 
     # Add subparsers for each operation

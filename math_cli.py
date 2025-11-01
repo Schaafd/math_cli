@@ -1,118 +1,118 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import sys
-import os
 from pathlib import Path
-from core.plugin_manager import PluginManager
-from cli.command_parser import create_argument_parser, parse_and_validate_args
+from typing import Iterable, Sequence
+
+from cli.command_parser import (
+    create_argument_parser,
+    create_global_argument_parser,
+    parse_and_validate_args,
+    parse_global_args,
+)
 from cli.interactive_mode import run_interactive_mode
+from core.plugin_manager import PluginManager
 from utils.helpers import format_plugin_list
 
-def main():
+def main(argv: Sequence[str] | None = None) -> int:
     """Main entry point for the math CLI."""
-    # Create plugin manager and discover built-in plugins
-    plugin_manager = PluginManager()
 
-    # Add the 'plugins' directory from the installation directory
+    argv = list(argv) if argv is not None else sys.argv[1:]
+
     base_dir = Path(__file__).parent
-    plugin_dir = base_dir / "plugins"
-    if plugin_dir.exists():
-        plugin_manager.add_plugin_directory(str(plugin_dir))
-
-    # First, check for global options that don't require operation parsing
-    # Create a simple parser for global options only
     global_parser = create_global_argument_parser()
+    global_args, remaining_args = parse_global_args(global_parser, argv)
 
-    # If no arguments provided, show help and exit
-    if len(sys.argv) == 1:
-        global_parser.print_help()
-        return 0
+    plugin_manager = _initialize_plugin_manager(
+        base_dir,
+        global_args.plugin_dir or [],
+    )
 
-    # Parse only known global arguments first
-    global_args, remaining_args = global_parser.parse_known_args()
-
-    # Add any user-specified plugin directories
-    if global_args.plugin_dir:
-        for directory in global_args.plugin_dir:
-            plugin_manager.add_plugin_directory(directory)
-
-    # Discover plugins from all registered directories
-    plugin_manager.discover_plugins()
-
-    # Get metadata from all loaded operations
     operations_metadata = plugin_manager.get_operations_metadata()
 
-    # If no operations were found, print an error and exit
     if not operations_metadata:
         print("Error: No math operations found.")
         return 1
 
-    # Handle list-plugins option
+    operation_parser = create_argument_parser(
+        operations_metadata,
+        global_parser=global_parser,
+    )
+
+    if not argv:
+        operation_parser.print_help()
+        return 0
+
     if global_args.list_plugins:
         print(format_plugin_list(operations_metadata))
         return 0
 
-    # Handle interactive mode
     if global_args.interactive:
         enable_colors = not global_args.no_color
         enable_animations = not global_args.no_animations
 
-        # Phase 4: Accessibility settings
         accessibility_settings = {
-            'screen_reader_mode': global_args.screen_reader if hasattr(global_args, 'screen_reader') else False,
-            'high_contrast': global_args.high_contrast if hasattr(global_args, 'high_contrast') else False,
+            'screen_reader_mode': getattr(global_args, 'screen_reader', False),
+            'high_contrast': getattr(global_args, 'high_contrast', False),
         }
 
-        run_interactive_mode(plugin_manager, operations_metadata, enable_colors, enable_animations, accessibility_settings)
+        run_interactive_mode(
+            plugin_manager,
+            operations_metadata,
+            enable_colors,
+            enable_animations,
+            accessibility_settings,
+        )
         return 0
 
-    # If we get here, we should have an operation command
-    # Create the full parser with all operations
-    parser = create_argument_parser(operations_metadata)
+    if not remaining_args:
+        operation_parser.print_help()
+        return 0
 
     try:
-        args = parser.parse_args()
-
-        # Handle operation command
+        args = operation_parser.parse_args(remaining_args)
         if args.operation:
             parsed_args = parse_and_validate_args(args, operations_metadata)
             if parsed_args:
                 result = plugin_manager.execute_operation(
                     parsed_args['operation'],
-                    *parsed_args['args']
+                    *parsed_args['args'],
                 )
                 print(f"Result: {result}")
                 return 0
-        else:
-            # No operation specified, show help
-            parser.print_help()
-    except SystemExit as e:
-        # argparse calls sys.exit on error, catch it to show our help
+        operation_parser.print_help()
+    except SystemExit as exc:
+        if exc.code == 0:
+            return 0
+
         if remaining_args:
-            print(f"Error: Unknown operation '{remaining_args[0]}'")
-            print("\nUse --list-plugins to see available operations")
-        return e.code
+            op_name = remaining_args[0]
+            if op_name not in operations_metadata:
+                print(f"Error: Unknown operation '{op_name}'")
+                print("\nUse --list-plugins to see available operations")
+        return exc.code
 
     return 0
 
-def create_global_argument_parser():
-    """Create argument parser for global options only."""
-    import argparse
-    parser = argparse.ArgumentParser(description='Perform mathematical operations', add_help=False)
 
-    # Add global options
-    parser.add_argument('--interactive', '-i', action='store_true', help='Run in interactive mode')
-    parser.add_argument('--plugin-dir', action='append', help='Directory containing additional plugins')
-    parser.add_argument('--list-plugins', action='store_true', help='List available operation plugins')
+def _initialize_plugin_manager(
+    base_dir: Path,
+    extra_directories: Iterable[str],
+) -> PluginManager:
+    """Create a plugin manager configured with built-in and custom plugins."""
 
-    # Accessibility options
-    parser.add_argument('--no-color', action='store_true', help='Disable colored output (accessibility)')
-    parser.add_argument('--no-animations', action='store_true', help='Disable animations (accessibility)')
-    parser.add_argument('--screen-reader', action='store_true', help='Enable screen reader mode (accessibility)')
-    parser.add_argument('--high-contrast', action='store_true', help='Enable high contrast mode (accessibility)')
+    plugin_manager = PluginManager()
 
-    parser.add_argument('--help', '-h', action='store_true', help='Show help message')
+    builtin_dir = base_dir / "plugins"
+    directories: Iterable[Path] = [builtin_dir, *map(Path, extra_directories)]
 
-    return parser
+    for directory in directories:
+        plugin_manager.add_plugin_directory(str(directory.resolve()))
+
+    plugin_manager.discover_plugins()
+    return plugin_manager
+
 
 if __name__ == "__main__":
     sys.exit(main())
