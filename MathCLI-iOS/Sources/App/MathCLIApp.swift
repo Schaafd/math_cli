@@ -11,10 +11,17 @@ import SwiftData
 @main
 struct MathCLIApp: App {
     let modelContainer: ModelContainer
+    @StateObject private var sessionManager: SessionManager
 
     init() {
         do {
-            modelContainer = try ModelContainer(for: HistoryEntry.self)
+            // Initialize model container with both Session and HistoryEntry
+            let container = try ModelContainer(for: Session.self, HistoryEntry.self)
+            modelContainer = container
+
+            // Initialize session manager
+            let manager = SessionManager(modelContext: container.mainContext)
+            _sessionManager = StateObject(wrappedValue: manager)
         } catch {
             fatalError("Failed to initialize ModelContainer: \(error)")
         }
@@ -24,6 +31,7 @@ struct MathCLIApp: App {
         WindowGroup {
             ContentView()
                 .modelContainer(modelContainer)
+                .environmentObject(sessionManager)
         }
     }
 }

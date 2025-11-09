@@ -10,9 +10,14 @@ import SwiftData
 
 struct CalculatorView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var sessionManager: SessionManager
     @StateObject private var viewModel: CalculatorViewModel
+    @State private var historyManager: HistoryManager?
     @FocusState private var isInputFocused: Bool
     @State private var scrollProxy: ScrollViewProxy?
+    @State private var showingRenameSheet = false
+    @State private var sessionToRename: Session?
+    @State private var newSessionName = ""
 
     init() {
         _viewModel = StateObject(wrappedValue: CalculatorViewModel())
@@ -21,6 +26,11 @@ struct CalculatorView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                // Session tabs at the top
+                sessionTabBar
+
+                Divider()
+
                 // Terminal-style output area
                 terminalOutput
 
@@ -35,6 +45,10 @@ struct CalculatorView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
+                        Button("New Session", systemImage: "plus.circle") {
+                            createNewSession()
+                        }
+                        Divider()
                         Button("Clear Output", systemImage: "trash") {
                             viewModel.outputLines.removeAll()
                         }
@@ -51,6 +65,145 @@ struct CalculatorView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showingRenameSheet) {
+                renameSessionSheet
+            }
+            .onAppear {
+                setupCurrentSession()
+            }
+            .onChange(of: sessionManager.activeSession) { _, newSession in
+                switchToSession(newSession)
+            }
+        }
+    }
+
+    // MARK: - Session Tab Bar
+
+    private var sessionTabBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(sessionManager.sessions) { session in
+                    SessionTab(
+                        session: session,
+                        isActive: session.id == sessionManager.activeSession?.id,
+                        onTap: {
+                            sessionManager.switchToSession(session)
+                        },
+                        onClose: {
+                            sessionManager.deleteSession(session)
+                        },
+                        onRename: {
+                            sessionToRename = session
+                            newSessionName = session.name
+                            showingRenameSheet = true
+                        }
+                    )
+                }
+
+                // Add new session button
+                Button {
+                    createNewSession()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .frame(width: 32, height: 32)
+                        .background(Color(uiColor: .tertiarySystemBackground))
+                        .cornerRadius(6)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .background(Color(uiColor: .secondarySystemBackground))
+    }
+
+    private var renameSessionSheet: some View {
+        NavigationStack {
+            Form {
+                TextField("Session Name", text: $newSessionName)
+                    .textInputAutocapitalization(.words)
+            }
+            .navigationTitle("Rename Session")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        showingRenameSheet = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        if let session = sessionToRename, !newSessionName.isEmpty {
+                            sessionManager.renameSession(session, newName: newSessionName)
+                        }
+                        showingRenameSheet = false
+                    }
+                    .disabled(newSessionName.isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.height(200)])
+    }
+
+    // MARK: - Helper Methods
+
+    private func setupCurrentSession() {
+        // Initialize history manager if needed
+        if historyManager == nil {
+            historyManager = HistoryManager(modelContext: modelContext)
+        }
+
+        if let session = sessionManager.activeSession {
+            historyManager?.setCurrentSession(session)
+            viewModel.historyManager = historyManager
+            VariableStore.shared.setSession(session.id)
+        }
+    }
+
+    private func switchToSession(_ session: Session?) {
+        guard let session = session else { return }
+
+        // Initialize history manager if needed
+        if historyManager == nil {
+            historyManager = HistoryManager(modelContext: modelContext)
+        }
+
+        // Switch history manager to new session
+        historyManager?.setCurrentSession(session)
+        viewModel.historyManager = historyManager
+
+        // Load new session's variables
+        VariableStore.shared.setSession(session.id)
+
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+
+        // Clear output (optional - could preserve per session)
+        viewModel.outputLines.removeAll()
+        viewModel.addOutputLine("📋 Switched to \(session.name)", type: .info)
+
+        // Show variable count if any
+        let vars = VariableStore.shared.getAllVariables()
+        if !vars.isEmpty {
+            viewModel.addOutputLine("\(vars.count) variable\(vars.count == 1 ? "" : "s") loaded", type: .info)
+        }
+
+        viewModel.addOutputLine("", type: .info)
+
+        // Refocus input
+        isInputFocused = true
+    }
+
+    private func createNewSession() {
+        // Haptic feedback
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+
+        sessionManager.createSession()
+        if let newSession = sessionManager.activeSession {
+            switchToSession(newSession)
         }
     }
 
@@ -232,6 +385,64 @@ struct CalculatorView: View {
     private func insertOperation(_ text: String) {
         viewModel.inputText += text
         isInputFocused = true
+    }
+}
+
+// MARK: - Session Tab
+
+struct SessionTab: View {
+    let session: Session
+    let isActive: Bool
+    let onTap: () -> Void
+    let onClose: () -> Void
+    let onRename: () -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            // Session name
+            Button(action: onTap) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(session.name)
+                        .font(.system(.caption, design: .default))
+                        .fontWeight(isActive ? .semibold : .regular)
+                        .foregroundColor(isActive ? .primary : .secondary)
+                        .lineLimit(1)
+
+                    Text("\(session.entryCount) entries")
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.leading, 8)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                Button("Rename", systemImage: "pencil") {
+                    onRename()
+                }
+                Button("Close", systemImage: "xmark", role: .destructive) {
+                    onClose()
+                }
+            }
+
+            // Close button
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .frame(width: 16, height: 16)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 6)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isActive ? Color.blue.opacity(0.15) : Color(uiColor: .tertiarySystemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(isActive ? Color.blue.opacity(0.5) : Color.clear, lineWidth: 1)
+        )
     }
 }
 

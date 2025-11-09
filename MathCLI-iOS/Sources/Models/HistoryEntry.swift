@@ -17,13 +17,16 @@ final class HistoryEntry {
     var isBookmarked: Bool
     var bookmarkName: String?
 
-    init(command: String, result: String, timestamp: Date = Date(), isBookmarked: Bool = false, bookmarkName: String? = nil) {
+    var session: Session?
+
+    init(command: String, result: String, timestamp: Date = Date(), isBookmarked: Bool = false, bookmarkName: String? = nil, session: Session? = nil) {
         self.id = UUID()
         self.command = command
         self.result = result
         self.timestamp = timestamp
         self.isBookmarked = isBookmarked
         self.bookmarkName = bookmarkName
+        self.session = session
     }
 
     var displayText: String {
@@ -42,17 +45,24 @@ class HistoryManager: ObservableObject {
 
     private let modelContext: ModelContext
     private let maxEntries: Int
+    weak var currentSession: Session?
 
-    init(modelContext: ModelContext, maxEntries: Int = 1000) {
+    init(modelContext: ModelContext, maxEntries: Int = 1000, session: Session? = nil) {
         self.modelContext = modelContext
         self.maxEntries = maxEntries
+        self.currentSession = session
         loadHistory()
     }
 
     func addEntry(command: String, result: String) {
-        let entry = HistoryEntry(command: command, result: result)
+        let entry = HistoryEntry(command: command, result: result, session: currentSession)
         modelContext.insert(entry)
         entries.insert(entry, at: 0)
+
+        // Add to session's entries if session exists
+        if let session = currentSession {
+            session.entries.append(entry)
+        }
 
         // Trim history if it exceeds max
         if entries.count > maxEntries {
@@ -64,6 +74,11 @@ class HistoryManager: ObservableObject {
         }
 
         saveHistory()
+    }
+
+    func setCurrentSession(_ session: Session?) {
+        currentSession = session
+        loadHistory()
     }
 
     func bookmark(entry: HistoryEntry, name: String) {
@@ -107,12 +122,17 @@ class HistoryManager: ObservableObject {
     }
 
     private func loadHistory() {
-        let descriptor = FetchDescriptor<HistoryEntry>(
-            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
-        )
-
         do {
-            entries = try modelContext.fetch(descriptor)
+            if let session = currentSession {
+                // Load only entries for current session
+                entries = session.entries.sorted(by: { $0.timestamp > $1.timestamp })
+            } else {
+                // Load all entries if no session
+                let descriptor = FetchDescriptor<HistoryEntry>(
+                    sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+                )
+                entries = try modelContext.fetch(descriptor)
+            }
         } catch {
             print("Failed to load history: \(error)")
             entries = []

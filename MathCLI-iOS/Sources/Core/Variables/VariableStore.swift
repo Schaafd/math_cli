@@ -11,10 +11,13 @@ import Foundation
 class VariableStore {
     static let shared = VariableStore()
 
+    // Current session ID for scoping variables
+    private var currentSessionId: UUID?
+
     // Stack of scopes (each scope is a dictionary of variables)
     private var scopes: [[String: OperationResult]] = [[:]]
 
-    // Persistent variables (saved across sessions)
+    // Persistent variables (saved across sessions) - now session-specific
     private var persistentVariables: [String: OperationResult] = [:]
 
     // Set of variable names that should be persisted
@@ -24,7 +27,32 @@ class VariableStore {
     private let persistenceKeysKey = "MathCLI.PersistentKeys"
 
     private init() {
-        loadPersistentVariables()
+        // Variables will be loaded when session is set
+    }
+
+    /// Set the current session and load its variables
+    func setSession(_ sessionId: UUID?) {
+        // Save current session's variables before switching
+        if let currentId = currentSessionId {
+            saveSessionVariables(for: currentId)
+        }
+
+        // Switch to new session
+        currentSessionId = sessionId
+
+        // Load new session's variables
+        if let sessionId = sessionId {
+            loadSessionVariables(for: sessionId)
+        } else {
+            scopes = [[:]]
+            persistentVariables = [:]
+            persistentKeys = []
+        }
+    }
+
+    /// Get the current session ID
+    func getCurrentSessionId() -> UUID? {
+        return currentSessionId
     }
 
     /// Set a variable in the current scope
@@ -166,7 +194,15 @@ class VariableStore {
 
     // MARK: - Persistence
 
-    private func savePersistentVariables() {
+    private func sessionPersistenceKey(for sessionId: UUID) -> String {
+        return "\(persistenceKey).\(sessionId.uuidString)"
+    }
+
+    private func sessionKeysKey(for sessionId: UUID) -> String {
+        return "\(persistenceKeysKey).\(sessionId.uuidString)"
+    }
+
+    private func saveSessionVariables(for sessionId: UUID) {
         let defaults = UserDefaults.standard
 
         // Save persistent variable values
@@ -175,31 +211,65 @@ class VariableStore {
             savedVars[key] = value.description
         }
 
-        defaults.set(savedVars, forKey: persistenceKey)
-        defaults.set(Array(persistentKeys), forKey: persistenceKeysKey)
+        defaults.set(savedVars, forKey: sessionPersistenceKey(for: sessionId))
+        defaults.set(Array(persistentKeys), forKey: sessionKeysKey(for: sessionId))
+
+        // Save current scope variables (session-specific)
+        var scopeVars: [String: String] = [:]
+        for scope in scopes {
+            for (key, value) in scope {
+                scopeVars[key] = value.description
+            }
+        }
+        defaults.set(scopeVars, forKey: "MathCLI.SessionScopes.\(sessionId.uuidString)")
     }
 
-    private func loadPersistentVariables() {
+    private func loadSessionVariables(for sessionId: UUID) {
         let defaults = UserDefaults.standard
 
         // Load persistent keys
-        if let keys = defaults.array(forKey: persistenceKeysKey) as? [String] {
+        if let keys = defaults.array(forKey: sessionKeysKey(for: sessionId)) as? [String] {
             persistentKeys = Set(keys)
+        } else {
+            persistentKeys = []
         }
 
         // Load persistent variables
-        if let savedVars = defaults.dictionary(forKey: persistenceKey) as? [String: String] {
+        persistentVariables = [:]
+        if let savedVars = defaults.dictionary(forKey: sessionPersistenceKey(for: sessionId)) as? [String: String] {
             for (key, valueStr) in savedVars {
-                if let numValue = Double(valueStr) {
-                    persistentVariables[key] = .number(numValue)
-                } else if valueStr == "true" {
-                    persistentVariables[key] = .boolean(true)
-                } else if valueStr == "false" {
-                    persistentVariables[key] = .boolean(false)
-                } else {
-                    persistentVariables[key] = .string(valueStr)
-                }
+                persistentVariables[key] = parseValue(valueStr)
             }
         }
+
+        // Load scope variables
+        scopes = [[:]]
+        if let scopeVars = defaults.dictionary(forKey: "MathCLI.SessionScopes.\(sessionId.uuidString)") as? [String: String] {
+            for (key, valueStr) in scopeVars {
+                scopes[0][key] = parseValue(valueStr)
+            }
+        }
+    }
+
+    private func parseValue(_ valueStr: String) -> OperationResult {
+        if let numValue = Double(valueStr) {
+            return .number(numValue)
+        } else if valueStr == "true" {
+            return .boolean(true)
+        } else if valueStr == "false" {
+            return .boolean(false)
+        } else {
+            return .string(valueStr)
+        }
+    }
+
+    private func savePersistentVariables() {
+        guard let sessionId = currentSessionId else { return }
+        saveSessionVariables(for: sessionId)
+    }
+
+    private func loadPersistentVariables() {
+        guard let sessionId = currentSessionId else { return }
+        loadSessionVariables(for: sessionId)
     }
 }

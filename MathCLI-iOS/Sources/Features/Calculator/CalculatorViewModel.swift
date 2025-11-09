@@ -20,7 +20,7 @@ class CalculatorViewModel: ObservableObject {
     private let executor: OperationExecutor
     private let registry: OperationRegistry
     private let variableStore: VariableStore
-    private let historyManager: HistoryManager?
+    var historyManager: HistoryManager?
 
     struct OutputLine: Identifiable {
         let id = UUID()
@@ -124,7 +124,7 @@ class CalculatorViewModel: ObservableObject {
         showSuggestions = false
     }
 
-    private func addOutputLine(_ text: String, type: OutputLine.LineType) {
+    func addOutputLine(_ text: String, type: OutputLine.LineType) {
         let line = OutputLine(type: type, text: text, timestamp: Date())
         outputLines.append(line)
 
