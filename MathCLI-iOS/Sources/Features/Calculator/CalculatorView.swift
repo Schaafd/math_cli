@@ -120,6 +120,7 @@ struct CalculatorView: View {
                     .focused($isInputFocused)
                     .onSubmit {
                         viewModel.executeCommand()
+                        isInputFocused = true
                     }
                     .onChange(of: viewModel.inputText) { _, _ in
                         viewModel.updateSuggestions()
@@ -128,6 +129,7 @@ struct CalculatorView: View {
                 // Execute button
                 Button {
                     viewModel.executeCommand()
+                    isInputFocused = true
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.title2)
