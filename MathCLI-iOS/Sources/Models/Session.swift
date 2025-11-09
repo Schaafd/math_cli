@@ -55,9 +55,13 @@ class SessionManager: ObservableObject {
         self.modelContext = modelContext
         loadSessions()
 
+        print("🔍 SessionManager init: Loaded \(sessions.count) sessions")
+
         // Create initial session if none exist
         if sessions.isEmpty {
+            print("🔍 SessionManager init: No sessions found, creating initial session")
             createSession()
+            print("🔍 SessionManager init: After creation, sessions count: \(sessions.count)")
         }
 
         // Set active session to the most recent one or first available
@@ -65,13 +69,17 @@ class SessionManager: ObservableObject {
             activeSession = sessions.first(where: { $0.isActive }) ?? sessions.first
             activeSession?.isActive = true
             saveContext()
+            print("🔍 SessionManager init: Active session set to: \(activeSession?.name ?? "nil")")
         }
     }
 
     func createSession(name: String? = nil) {
+        print("🔍 SessionManager.createSession: Creating new session")
+
         // Deactivate current session
         if let current = activeSession {
             current.isActive = false
+            print("🔍 SessionManager.createSession: Deactivated current session: \(current.name)")
         }
 
         // Create new session
@@ -79,6 +87,8 @@ class SessionManager: ObservableObject {
         modelContext.insert(session)
         sessions.insert(session, at: 0)
         activeSession = session
+
+        print("🔍 SessionManager.createSession: Created session '\(session.name)', total sessions: \(sessions.count)")
 
         saveContext()
     }

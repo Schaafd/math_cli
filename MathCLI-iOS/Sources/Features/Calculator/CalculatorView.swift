@@ -82,6 +82,13 @@ struct CalculatorView: View {
     private var sessionTabBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
+                // Debug: Show session count
+                if sessionManager.sessions.isEmpty {
+                    Text("No sessions - Debug")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+
                 ForEach(sessionManager.sessions) { session in
                     SessionTab(
                         session: session,
@@ -115,6 +122,7 @@ struct CalculatorView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
+        .frame(minHeight: 50)
         .background(Color(uiColor: .secondarySystemBackground))
     }
 
@@ -149,6 +157,10 @@ struct CalculatorView: View {
     // MARK: - Helper Methods
 
     private func setupCurrentSession() {
+        print("🔍 CalculatorView.setupCurrentSession: Called")
+        print("🔍 CalculatorView: SessionManager has \(sessionManager.sessions.count) sessions")
+        print("🔍 CalculatorView: Active session: \(sessionManager.activeSession?.name ?? "nil")")
+
         // Initialize history manager if needed
         if historyManager == nil {
             historyManager = HistoryManager(modelContext: modelContext)
@@ -158,6 +170,9 @@ struct CalculatorView: View {
             historyManager?.setCurrentSession(session)
             viewModel.historyManager = historyManager
             VariableStore.shared.setSession(session.id)
+            print("🔍 CalculatorView.setupCurrentSession: Setup complete for session: \(session.name)")
+        } else {
+            print("🔍 CalculatorView.setupCurrentSession: WARNING - No active session!")
         }
     }
 
