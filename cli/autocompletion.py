@@ -8,17 +8,21 @@ from prompt_toolkit.document import Document
 class MathOperationCompleter(Completer):
     """Custom completer for math operations with parameter hints."""
 
-    def __init__(self, operations_metadata: Dict):
+    def __init__(self, operations_metadata: Dict, session_manager=None):
         """Initialize the completer with operations metadata.
 
         Args:
             operations_metadata: Dictionary of operation name -> operation info
+            session_manager: Optional SessionManager for session name completion
         """
         self.operations_metadata = operations_metadata
         self.operation_names = sorted(operations_metadata.keys())
+        self.session_manager = session_manager
 
-        # Create special commands list
-        self.special_commands = ['help', 'history', 'exit', 'quit', 'chain']
+        # Create special commands list (including new vim-style commands)
+        self.special_commands = ['help', 'history', 'exit', 'quit', 'chain',
+                                'session', 'sessions', 's',
+                                ':s', ':sn', ':sp', ':sl']
 
     def get_completions(self, document: Document, complete_event) -> Iterable[Completion]:
         """Generate completions for the current input.
@@ -75,9 +79,29 @@ class MathOperationCompleter(Completer):
                         display_meta=meta_text
                     )
 
-        # For subsequent words, we could add parameter suggestions in the future
-        # For now, we'll just complete operation names if they're typing one
+        # For subsequent words, check for session name completion
         else:
+            # Check if we're completing session names
+            if self.session_manager and len(words) >= 2:
+                first_word = words[0].lower()
+
+                # Complete session names for: "session open <name>", "session delete <name>",
+                # "session rename <name>", "s <name>", ":s <name>"
+                if ((first_word == 'session' and len(words) >= 2 and words[1].lower() in ['open', 'delete']) or
+                    (first_word in ['s', ':s'] and len(words) == 2)):
+
+                    # Get all session names
+                    session_names = self.session_manager.get_session_names()
+
+                    for session_name in session_names:
+                        if session_name.lower().startswith(current_word.lower()):
+                            yield Completion(
+                                session_name,
+                                start_position=-len(current_word),
+                                display=session_name,
+                                display_meta="session"
+                            )
+
             # Check if they're typing a new operation (for chain commands)
             for op_name in self.operation_names:
                 if op_name.lower().startswith(current_word):
@@ -110,7 +134,14 @@ class MathOperationCompleter(Completer):
             'history': 'Show or manage calculation history',
             'exit': 'Exit interactive mode',
             'quit': 'Exit interactive mode',
-            'chain': 'Execute chained calculations'
+            'chain': 'Execute chained calculations',
+            'session': 'Manage sessions',
+            'sessions': 'List all sessions',
+            's': 'Quick session switch',
+            ':s': 'Vim: switch to session',
+            ':sn': 'Vim: next session',
+            ':sp': 'Vim: previous session',
+            ':sl': 'Vim: list sessions'
         }
         return help_texts.get(command, '')
 

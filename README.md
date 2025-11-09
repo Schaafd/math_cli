@@ -29,7 +29,8 @@ A modular command-line calculator with plugin support for mathematical operation
 - [Interactive Mode](#interactive-mode)
   - [Visual Enhancements](#visual-enhancements-phase-1)
   - [Interactive Features](#interactive-features-phase-2)
-  - [Session Management & Personalization](#session-management--personalization-phase-3---new)
+  - [Session Management](#session-management-phase-6---new)
+  - [Themes & Personalization](#themes--personalization-phase-3)
   - [History Feature](#history-feature)
   - [Previous Result Reference](#previous-result-reference)
   - [Chained Calculations](#chained-calculations)
@@ -970,26 +971,118 @@ Math CLI features a **delightful interactive experience** with:
 
 Enhanced interactivity with intelligent assistance:
 
-- ⌨️ **Smart Autocompletion** - Press Tab to autocomplete operation names with parameter hints
+- ⌨️ **Smart Autocompletion** - Press Tab to autocomplete operation names, session names, and parameters
 - 🔍 **Advanced Help System** - Use `help <operation>` for detailed documentation
 - 🎯 **Fuzzy Error Matching** - Get intelligent suggestions for typos (e.g., "squrt" → "sqrt")
 - 📚 **Searchable Operations** - Use `help search:trig` to find trigonometric functions
 - 📂 **Category Browsing** - Use `help category:statistics` to see all statistical operations
 - ⌨️ **Keyboard Shortcuts** - Ctrl+L to clear, Ctrl+D to exit, ↑↓ for history
 - 📊 **Bottom Toolbar** - See previous results and available shortcuts at a glance
+- 🎮 **Vim-Style Commands** - Use `:sn`, `:sp`, `:s <name>` for fast session navigation
 
-### Session Management & Personalization (Phase 3 - NEW!)
+### Session Management (Phase 6 - NEW!)
 
-Professional data management and customization:
+Track and organize your work across multiple named sessions with powerful navigation:
+
+- 📁 **Multiple Sessions** - Create separate sessions for different projects/tasks
+- 🔄 **Quick Switching** - Vim-style commands (`:sn`, `:sp`) and autocomplete
+- 💾 **Auto-Persistence** - Sessions automatically saved and restored
+- 🎯 **Smart Navigation** - Cycle through sessions with next/previous
+- ⌨️ **Tab Autocomplete** - Session names autocomplete when switching
+- 📊 **Session History** - Each session tracks its own commands separately
+- 🏷️ **Rename & Organize** - Rename sessions and view organized lists
+
+**Quick Start:**
+```bash
+# Start interactive mode - a session is auto-created
+python math_cli.py --interactive
+
+# Create named sessions for different workflows
+❯ session new Work Projects
+❯ add 1000 250              # Commands tracked in "Work Projects"
+
+❯ session new Personal
+❯ multiply 50 2             # Commands tracked in "Personal"
+
+# List all sessions (or use :sl)
+❯ sessions
+                      Math CLI Sessions (2 total)
+╭──────────────────┬──────────┬──────────┬───────────────┬────────╮
+│ Name             │ ID       │ Commands │ Updated       │ Status │
+├──────────────────┼──────────┼──────────┼───────────────┼────────┤
+│ Personal         │ abc123   │        1 │ Nov 08, 14:30 │   ●    │
+│ Work Projects    │ def456   │        1 │ Nov 08, 14:28 │        │
+╰──────────────────┴──────────┴──────────┴───────────────┴────────╯
+```
+
+**Session Commands:**
+
+| Command | Shorthand | Vim Style | Description |
+|---------|-----------|-----------|-------------|
+| `sessions` | - | `:sl` | List all sessions with details |
+| `session current` | `s` | - | Show current session info |
+| `session new <name>` | - | - | Create and switch to new session |
+| `session open <name>` | `s <name>` | `:s <name>` | Switch to session (Tab autocomplete!) |
+| `session next` | `session n` | `:sn` | Switch to next session |
+| `session prev` | `session p` | `:sp` | Switch to previous session |
+| `session rename <name>` | - | - | Rename current session |
+| `session delete <name>` | - | - | Delete a session (can't delete active) |
+| `session clear` | - | - | Clear all commands from current session |
+
+**Navigation Examples:**
+```bash
+# Vim-style quick navigation
+❯ :sn                        # Next session
+❯ :sp                        # Previous session
+❯ :sl                        # List sessions
+❯ :s Work Projects           # Switch to "Work Projects"
+
+# Use Tab autocomplete for session names
+❯ s Wor<Tab>                 # Autocompletes to "s Work Projects"
+❯ :s Per<Tab>                # Autocompletes to ":s Personal"
+
+# Traditional commands
+❯ session next               # Next session
+❯ session prev               # Previous session
+❯ session open Personal      # Switch to "Personal"
+```
+
+**Real-World Workflow:**
+```bash
+# Morning: Financial calculations
+❯ session new Finance
+❯ multiply 1250 0.05
+❯ add 1250 62.50
+
+# Afternoon: Data analysis
+❯ session new Data Analysis
+❯ load_data sales.csv csv data
+❯ describe_data data
+
+# Quick check on finance
+❯ s Finance                  # Quick switch back
+❯ session current            # See finance commands
+
+# Navigate between all sessions
+❯ :sn                        # Cycle through sessions
+❯ :sp                        # Go back
+
+# Next day: Automatically restore last session
+❯ python math_cli.py -i
+ℹ️  Restored session: 'Data Analysis' (5 commands)
+```
+
+### Themes & Personalization (Phase 3)
+
+Professional customization options:
 
 - 🎨 **8 Beautiful Themes** - Choose from default, dark, light, ocean, forest, sunset, and more
 - ⚙️ **Configuration System** - Customize every aspect of Math CLI behavior
-- 💾 **Persistent History** - Automatic save/load of calculation history across sessions
 - 📤 **Export Functionality** - Export history to JSON, CSV, or Markdown formats
 - 🔖 **Bookmark System** - Save important results with custom names for quick retrieval
 - 🎯 **Cross-Platform** - Config stored in proper system directories (XDG/APPDATA)
 
-**Phase 3 Commands:**
+**Configuration Commands:**
 ```bash
 # Configuration
 config                        # Show all settings

@@ -1,5 +1,6 @@
 from typing import Dict, Any
 from utils.history import HistoryManager
+from utils.sessions import get_session_manager
 from utils.visual import (
     print_welcome_banner,
     print_result,
@@ -70,7 +71,22 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
     print_welcome_banner()
     print_info("Type 'exit' or 'quit' to exit, 'help' for available commands")
 
-    # Initialize history manager
+    # Initialize session manager
+    session_manager = get_session_manager()
+
+    # Try to restore last session or create a new one
+    restored_session_id = session_manager.restore_last_session()
+    if restored_session_id:
+        session_info = session_manager.get_current_session_info()
+        print_info(f"Restored session: '{session_info['name']}' ({session_info['command_count']} commands)")
+    else:
+        # Create a new session
+        from datetime import datetime
+        session_name = f"Session {datetime.now().strftime('%b %d, %H:%M')}"
+        session_manager.create_session(session_name)
+        print_success(f"Started new session: '{session_name}'")
+
+    # Initialize history manager (for backward compatibility with history command)
     history = HistoryManager()
 
     # Store the last result for reference
@@ -123,7 +139,28 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
 - `bookmark save <index> <name>` - Bookmark a result
 - `bookmark get <name>` - Retrieve a bookmark
         """
-        print_help_panel("Session Management", phase3_help)
+        print_help_panel("Configuration & Export", phase3_help)
+
+        # Show Session Management help
+        session_help = """
+**Session Commands:**
+- `sessions` or `:sl` - List all saved sessions
+- `session current` - Show current session info
+- `session new <name>` - Create and switch to a new session
+- `session open <name>` or `s <name>` or `:s <name>` - Open a session (Tab to autocomplete)
+- `session next` or `:sn` - Switch to next session
+- `session prev` or `:sp` - Switch to previous session
+- `session rename <new_name>` - Rename current session
+- `session delete <name>` - Delete a session
+- `session clear` - Clear commands from current session
+
+**Vim-Style Quick Commands:**
+- `:s <name>` - Switch to session (autocomplete with Tab)
+- `:sn` - Next session
+- `:sp` - Previous session
+- `:sl` - List sessions
+        """
+        print_help_panel("Session Management", session_help)
 
         # Show Phase 4 features help
         phase4_help = """
@@ -197,8 +234,12 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
 
         op_name = parts[0]
 
-        # Check if it's a special command (config, theme, export, bookmark, perf)
-        special_commands = ['config', 'theme', 'export', 'bookmark', 'perf']
+        # Handle vim-style session commands
+        if op_name.startswith(':'):
+            return 'vim', [op_name] + parts[1:]
+
+        # Check if it's a special command (config, theme, export, bookmark, perf, session, sessions, s)
+        special_commands = ['config', 'theme', 'export', 'bookmark', 'perf', 'session', 'sessions', 's']
         if op_name in special_commands:
             return op_name, parts[1:]
 
@@ -346,6 +387,7 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
         if chain_result is not None:
             print_final_result(chain_result)
             history.add_entry(full_command, chain_result)
+            session_manager.add_command(full_command, chain_result)
             # Update the session's last_result with the chain's final result
             last_result = chain_result
             return chain_result
@@ -554,6 +596,206 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
             print_error("Invalid perf command",
                        "Usage: perf [reset | startup]")
 
+    def handle_session_command(args):
+        """Handle session management commands."""
+        from rich.table import Table
+        from rich import box
+        from datetime import datetime
+
+        if not args:
+            # Show current session info
+            session_info = session_manager.get_current_session_info()
+            if session_info:
+                console.print(f"\n[bold cyan]Current Session:[/bold cyan]")
+                console.print(f"  Name: [yellow]{session_info['name']}[/yellow]")
+                console.print(f"  ID: [dim]{session_info['id']}[/dim]")
+                console.print(f"  Created: {session_info['created_at']}")
+                console.print(f"  Commands: {session_info['command_count']}")
+            else:
+                print_info("No active session")
+
+        elif args[0] == "current":
+            # Show current session info (same as no args)
+            handle_session_command([])
+
+        elif args[0] == "new" and len(args) >= 2:
+            # Create new session
+            session_name = ' '.join(args[1:])
+            session_id = session_manager.create_session(session_name)
+            if session_id:
+                print_success(f"Created and switched to new session: '{session_name}'")
+            else:
+                print_error("Failed to create session")
+
+        elif args[0] == "open" and len(args) >= 2:
+            # Open an existing session
+            identifier = ' '.join(args[1:])
+            session_data = session_manager.load_session(identifier)
+            if session_data:
+                print_success(f"Opened session: '{session_data['name']}'")
+                # Show session info
+                print_info(f"Commands in this session: {len(session_data.get('commands', []))}")
+            else:
+                print_error(f"Session not found: {identifier}")
+
+        elif args[0] == "rename" and len(args) >= 2:
+            # Rename current session
+            new_name = ' '.join(args[1:])
+            session_info = session_manager.get_current_session_info()
+            if session_info:
+                if session_manager.rename_session(session_info['id'], new_name):
+                    print_success(f"Session renamed to: '{new_name}'")
+                else:
+                    print_error("Failed to rename session")
+            else:
+                print_error("No active session to rename")
+
+        elif args[0] == "delete" and len(args) >= 2:
+            # Delete a session
+            identifier = ' '.join(args[1:])
+            if session_manager.delete_session(identifier):
+                print_success(f"Session deleted: {identifier}")
+            else:
+                print_error(f"Failed to delete session: {identifier}",
+                           "Note: Cannot delete the currently active session")
+
+        elif args[0] == "clear":
+            # Clear current session commands
+            session_manager.clear_current_session()
+            print_success("Current session commands cleared")
+
+        elif args[0] in ["next", "n"]:
+            # Switch to next session
+            next_id = session_manager.next_session()
+            if next_id:
+                session_info = session_manager.get_current_session_info()
+                print_success(f"Switched to next session: '{session_info['name']}'")
+            else:
+                print_info("Only one session available or no sessions")
+
+        elif args[0] in ["prev", "previous", "p"]:
+            # Switch to previous session
+            prev_id = session_manager.previous_session()
+            if prev_id:
+                session_info = session_manager.get_current_session_info()
+                print_success(f"Switched to previous session: '{session_info['name']}'")
+            else:
+                print_info("Only one session available or no sessions")
+
+        else:
+            print_error("Invalid session command",
+                       "Usage: session [current | new <name> | open <id/name> | rename <name> | delete <id/name> | clear | next | prev]")
+
+    def handle_sessions_command(args):
+        """Handle sessions list command."""
+        from rich.table import Table
+        from rich import box
+        from datetime import datetime
+
+        sessions = session_manager.list_sessions()
+
+        if not sessions:
+            print_info("No sessions found")
+            return
+
+        # Create table
+        table = Table(
+            title=f"[bold]Math CLI Sessions[/bold] ({len(sessions)} total)",
+            box=box.ROUNDED,
+            header_style="bold cyan"
+        )
+
+        table.add_column("Name", style="yellow bold")
+        table.add_column("ID", style="dim")
+        table.add_column("Commands", justify="right", style="green")
+        table.add_column("Updated", style="cyan")
+        table.add_column("Status", justify="center")
+
+        for session in sessions:
+            # Format timestamp
+            try:
+                dt = datetime.fromisoformat(session['updated_at'])
+                updated = dt.strftime('%b %d, %H:%M')
+            except:
+                updated = session['updated_at']
+
+            # Status indicator
+            status = "●" if session['is_active'] else ""
+            status_style = "green bold" if session['is_active'] else "dim"
+
+            table.add_row(
+                session['name'],
+                session['id'],
+                str(session['command_count']),
+                updated,
+                f"[{status_style}]{status}[/{status_style}]"
+            )
+
+        console.print("\n")
+        console.print(table)
+        console.print("\n[dim]● = Active session[/dim]")
+        console.print("[dim]Use 'session open <id or name>' to switch sessions[/dim]\n")
+
+    def handle_s_command(args):
+        """Handle shorthand 's' command for quick session switching."""
+        if not args:
+            # No args, just show current session
+            handle_session_command([])
+        else:
+            # Quick switch to session
+            identifier = ' '.join(args)
+            session_data = session_manager.load_session(identifier)
+            if session_data:
+                print_success(f"Switched to: '{session_data['name']}'")
+            else:
+                print_error(f"Session not found: {identifier}")
+
+    def handle_vim_command(args):
+        """Handle vim-style session commands."""
+        if not args:
+            return
+
+        vim_cmd = args[0].lower()
+
+        if vim_cmd == ':s':
+            # Switch to session
+            if len(args) < 2:
+                print_error("Usage: :s <session_name>")
+                return
+
+            identifier = ' '.join(args[1:])
+            session_data = session_manager.load_session(identifier)
+            if session_data:
+                print_success(f"Switched to: '{session_data['name']}'")
+            else:
+                print_error(f"Session not found: {identifier}")
+
+        elif vim_cmd == ':sn':
+            # Next session
+            next_id = session_manager.next_session()
+            if next_id:
+                session_info = session_manager.get_current_session_info()
+                print_success(f"Next session: '{session_info['name']}'")
+            else:
+                print_info("Only one session available")
+
+        elif vim_cmd == ':sp':
+            # Previous session
+            prev_id = session_manager.previous_session()
+            if prev_id:
+                session_info = session_manager.get_current_session_info()
+                print_success(f"Previous session: '{session_info['name']}'")
+            else:
+                print_info("Only one session available")
+
+        elif vim_cmd == ':sl':
+            # List sessions
+            handle_sessions_command([])
+
+        else:
+            print_error(f"Unknown vim command: {vim_cmd}",
+                       "Available: :s <name>, :sn, :sp, :sl")
+
     def handle_plot_command(plot_type, args):
         """Handle plotting commands."""
         from utils.plotting import plot_function_string, ASCIIPlotter
@@ -575,8 +817,9 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
                 console.print(f"\n[cyan]Plot:[/cyan] {func_name}(x) from {start} to {end}\n")
                 console.print(result)
 
-                # Add to history
+                # Add to history and session
                 history.add_entry(f"plot {func_name} {start} {end}", f"Plotted {func_name}(x)")
+                session_manager.add_command(f"plot {func_name} {start} {end}", f"Plotted {func_name}(x)")
 
             elif plot_type in ["plot_data", "plot_line", "plot_bar"]:
                 # plot_data/plot_line/plot_bar <values...>
@@ -610,8 +853,9 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
                 console.print(f"\n[cyan]{title_map[plot_type]}:[/cyan] {len(values)} points\n")
                 console.print(result)
 
-                # Add to history
+                # Add to history and session
                 history.add_entry(f"{plot_type} {' '.join(args)}", f"Plotted {len(values)} {style}")
+                session_manager.add_command(f"{plot_type} {' '.join(args)}", f"Plotted {len(values)} {style}")
 
         except ValueError as e:
             print_error(f"Error in plot command: {str(e)}",
@@ -652,7 +896,7 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
 
         session = PromptSession(
             history=InMemoryHistory(),
-            completer=MathOperationCompleter(operations_metadata),
+            completer=MathOperationCompleter(operations_metadata, session_manager),
             complete_while_typing=False,  # Only complete on Tab
             key_bindings=create_key_bindings(history),
             bottom_toolbar=lambda: get_bottom_toolbar_text(last_result, show_shortcuts=True),
@@ -750,6 +994,25 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
                 handle_perf_command(arg_parts)
                 continue
 
+            # Session management commands
+            if op_name == "session":
+                handle_session_command(arg_parts)
+                continue
+
+            if op_name == "sessions":
+                handle_sessions_command(arg_parts)
+                continue
+
+            # Shorthand 's' command for quick session operations
+            if op_name == "s":
+                handle_s_command(arg_parts)
+                continue
+
+            # Vim-style commands
+            if op_name == "vim":
+                handle_vim_command(arg_parts)
+                continue
+
             # Phase 4: Plotting operations (need special handling for string arguments)
             if op_name in ['plot', 'plot_data', 'plot_line', 'plot_bar']:
                 handle_plot_command(op_name, arg_parts)
@@ -798,8 +1061,9 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
                 # Store as the last result for reference
                 last_result = result
 
-                # Add to history
+                # Add to history and session
                 history.add_entry(user_input, result)
+                session_manager.add_command(user_input, result)
 
             except ValueError as e:
                 print_error(str(e), "Please check your input and try again")
