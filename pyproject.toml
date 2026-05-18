@@ -27,6 +27,7 @@ test = [
 ]
 
 [project.scripts]
+math = "math_cli:main"
 math-cli = "math_cli:main"
 
 [tool.setuptools]

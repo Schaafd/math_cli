@@ -44,24 +44,57 @@ A modular command-line calculator with plugin support for mathematical operation
 
 ## Installation
 
-Clone the repository and install the package:
+### Quick Install
 
 ```bash
-git clone https://github.com/yourusername/math-cli.git
-cd math-cli
-
-# Option 1: Using uv (recommended - faster!)
-uv venv
-uv pip install -r requirements.txt
-
-# Option 2: Using standard venv
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Or install in editable mode
-pip install -e .
+git clone https://github.com/Schaafd/math_cli.git
+cd math_cli
+./install.sh
 ```
+
+That installs the `math` command from this checkout. Verify it with:
+
+```bash
+math add 2 3
+math --list-plugins
+```
+
+The older `math-cli` command is still installed as a compatibility alias.
+
+The installer uses `uv tool install --force --editable .` when `uv` is available, falls
+back to `pipx install --force --editable .`, and finally falls back to
+`python3 -m pip install --user --editable .`. If the final `pip` fallback is used
+and `math` is not found, add your Python user scripts directory to `PATH`.
+
+### Install Without Cloning
+
+If you already use `uv` or `pipx`, you can install directly from GitHub:
+
+```bash
+uv tool install git+https://github.com/Schaafd/math_cli.git
+```
+
+or:
+
+```bash
+pipx install git+https://github.com/Schaafd/math_cli.git
+```
+
+### Development Install
+
+For local development and tests:
+
+```bash
+git clone https://github.com/Schaafd/math_cli.git
+cd math_cli
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[test]"
+pytest -q
+```
+
+You can still run the script directly with `python math_cli.py ...`, but normal
+use should be through the installed `math` command.
 
 ### Requirements
 
@@ -92,26 +125,26 @@ Math CLI provides a simple interface for performing mathematical operations:
 
 ```bash
 # Basic arithmetic
-python math_cli.py add 5 3
-python math_cli.py subtract 10 4
-python math_cli.py multiply 6 7
-python math_cli.py divide 20 5
+math add 5 3
+math subtract 10 4
+math multiply 6 7
+math divide 20 5
 
 # Other operations
-python math_cli.py sqrt 16
-python math_cli.py power 2 8
-python math_cli.py factorial 5
-python math_cli.py abs -42
+math sqrt 16
+math power 2 8
+math factorial 5
+math abs -42
 ```
 
-Each operation follows the pattern: `python math_cli.py <operation> <arguments>`
+Each operation follows the pattern: `math <operation> <arguments>`
 
 ## Available Operations
 
 To list all available operations:
 
 ```bash
-python math_cli.py --list-plugins
+math --list-plugins
 ```
 
 Math CLI includes **266+ mathematical operations** organized into 17 logical categories:
@@ -158,17 +191,17 @@ Math CLI includes 8 comprehensive plugin modules that extend functionality beyon
 ### Quick Examples:
 ```bash
 # Statistical analysis
-python math_cli.py mean 85 92 78 96 88 91 87 94 89 93
-python math_cli.py std_dev 10 12 14 16 18
+math mean 85 92 78 96 88 91 87 94 89 93
+math std_dev 10 12 14 16 18
 
 # Complex numbers  
-python math_cli.py complex_add 3 4 2 -1
+math complex_add 3 4 2 -1
 
 # Unit conversions
-python math_cli.py celsius_to_fahrenheit 25
+math celsius_to_fahrenheit 25
 
 # Geometric calculations
-python math_cli.py area_circle 5
+math area_circle 5
 ```
 
 **📖 For complete documentation of all core plugins, see: [Core Plugins Guide](docs/Core_Plugins.md)**
@@ -182,14 +215,14 @@ Comprehensive support for complex number arithmetic and analysis:
 
 ```bash
 # Basic complex operations
-python math_cli.py cadd 3 4 1 2              # (3+4i) + (1+2i) = 4+6i
-python math_cli.py cmul 3 4 1 2              # (3+4i) * (1+2i) = -5+10i
-python math_cli.py magnitude 3 4              # |3+4i| = 5.0
-python math_cli.py phase 1 1                  # arg(1+i) = 0.785 rad
+math cadd 3 4 1 2              # (3+4i) + (1+2i) = 4+6i
+math cmul 3 4 1 2              # (3+4i) * (1+2i) = -5+10i
+math magnitude 3 4              # |3+4i| = 5.0
+math phase 1 1                  # arg(1+i) = 0.785 rad
 
 # Advanced complex functions
-python math_cli.py csqrt -1 0                 # √(-1) = i
-python math_cli.py cexp 0 3.14159             # e^(iπ) ≈ -1
+math csqrt -1 0                 # √(-1) = i
+math cexp 0 3.14159             # e^(iπ) ≈ -1
 ```
 
 ### Matrix Operations (12 operations)
@@ -197,10 +230,10 @@ Linear algebra operations using NumPy:
 
 ```bash
 # Create and analyze matrices
-python math_cli.py det 2 1 2 3 4              # det([[1,2],[3,4]]) = -2
-python math_cli.py transpose 2 3 1 2 3 4 5 6  # Transpose 2x3 matrix
-python math_cli.py eigenvalues 2 4 1 2 3      # Find eigenvalues
-python math_cli.py trace 3 1 0 0 0 2 0 0 0 3  # Trace = 6
+math det 2 1 2 3 4              # det([[1,2],[3,4]]) = -2
+math transpose 2 3 1 2 3 4 5 6  # Transpose 2x3 matrix
+math eigenvalues 2 4 1 2 3      # Find eigenvalues
+math trace 3 1 0 0 0 2 0 0 0 3  # Trace = 6
 ```
 
 ### Calculus (12 operations)
@@ -208,17 +241,17 @@ Symbolic and numerical calculus with SymPy:
 
 ```bash
 # Derivatives
-python math_cli.py derivative 'x**2' x        # d/dx(x²) = 2*x
-python math_cli.py derivative2 'x**3' x       # d²/dx²(x³) = 6*x
-python math_cli.py gradient 'x**2+y**2' x y   # ∇(x²+y²) = [2*x, 2*y]
+math derivative 'x**2' x        # d/dx(x²) = 2*x
+math derivative2 'x**3' x       # d²/dx²(x³) = 6*x
+math gradient 'x**2+y**2' x y   # ∇(x²+y²) = [2*x, 2*y]
 
 # Integration
-python math_cli.py integrate 'x**2' 0 1       # ∫₀¹ x² dx = 0.333
-python math_cli.py integrate_symbolic 'x' x   # ∫ x dx = x²/2
+math integrate 'x**2' 0 1       # ∫₀¹ x² dx = 0.333
+math integrate_symbolic 'x' x   # ∫ x dx = x²/2
 
 # Limits and series
-python math_cli.py limit 'sin(x)/x' x 0       # lim(x→0) sin(x)/x = 1
-python math_cli.py taylor 'exp(x)' x 0 5      # Taylor series of eˣ
+math limit 'sin(x)/x' x 0       # lim(x→0) sin(x)/x = 1
+math taylor 'exp(x)' x 0 5      # Taylor series of eˣ
 ```
 
 ### Number Theory (15 operations)
@@ -226,16 +259,16 @@ Prime numbers, combinatorics, and modular arithmetic:
 
 ```bash
 # Prime operations
-python math_cli.py is_prime 17                # True
-python math_cli.py prime_factors 84           # {2: 2, 3: 1, 7: 1}
-python math_cli.py next_prime 100             # 101
-python math_cli.py prime_count 100            # 25 primes ≤ 100
+math is_prime 17                # True
+math prime_factors 84           # {2: 2, 3: 1, 7: 1}
+math next_prime 100             # 101
+math prime_count 100            # 25 primes ≤ 100
 
 # Combinatorics
-python math_cli.py factorial 5                # 5! = 120
-python math_cli.py fibonacci 10               # F₁₀ = 55
-python math_cli.py combinations 5 3           # C(5,3) = 10
-python math_cli.py euler_phi 12               # φ(12) = 4
+math factorial 5                # 5! = 120
+math fibonacci 10               # F₁₀ = 55
+math combinations 5 3           # C(5,3) = 10
+math euler_phi 12               # φ(12) = 4
 ```
 
 ## Data Analysis & Visualization (Phase 5.2 - NEW!)
@@ -440,7 +473,7 @@ Here's a real-world example analyzing sales data:
 
 ```bash
 # Start interactive mode
-python math_cli.py --interactive
+math --interactive
 
 # Load data
 ❯ load_data 'monthly_sales.csv' csv sales
@@ -786,13 +819,13 @@ Export your complete session including variables and user-defined functions:
 
 ```bash
 # Export entire session as JSON (default)
-python math_cli.py export_session my_session.json
+math export_session my_session.json
 
 # Export as Markdown for documentation
-python math_cli.py export_session report.md markdown
+math export_session report.md markdown
 
 # Export as LaTeX for academic papers
-python math_cli.py export_session paper.tex latex
+math export_session paper.tex latex
 ```
 
 #### Import Session
@@ -801,7 +834,7 @@ Restore a previously saved session:
 
 ```bash
 # Import session from JSON file
-python math_cli.py import_session my_session.json
+math import_session my_session.json
 ```
 
 #### Export/Import Variables
@@ -810,10 +843,10 @@ Export or import only variables:
 
 ```bash
 # Export variables to JSON
-python math_cli.py export_vars my_vars.json
+math export_vars my_vars.json
 
 # Import variables from JSON
-python math_cli.py import_vars my_vars.json
+math import_vars my_vars.json
 ```
 
 #### Export/Import Functions
@@ -822,10 +855,10 @@ Export or import only user-defined functions:
 
 ```bash
 # Export functions to JSON
-python math_cli.py export_funcs my_funcs.json
+math export_funcs my_funcs.json
 
 # Import functions from JSON
-python math_cli.py import_funcs my_funcs.json
+math import_funcs my_funcs.json
 ```
 
 ### Export Formats
@@ -901,46 +934,46 @@ Academic format for papers and reports:
 **1. Scientific Collaboration**
 ```bash
 # Save analysis session for colleagues
-python math_cli.py set alpha 0.05
-python math_cli.py set confidence 95
-python math_cli.py export_session analysis.json
+math set alpha 0.05
+math set confidence 95
+math export_session analysis.json
 
 # Colleague imports and continues work
-python math_cli.py import_session analysis.json
+math import_session analysis.json
 ```
 
 **2. Report Generation**
 ```bash
 # Perform calculations
-python math_cli.py def roi investment return = multiply (divide $return $investment) 100
-python math_cli.py set investment 10000
-python math_cli.py set returns 12000
-python math_cli.py roi $investment $returns
+math def roi investment return = multiply (divide $return $investment) 100
+math set investment 10000
+math set returns 12000
+math roi $investment $returns
 
 # Export as Markdown for documentation
-python math_cli.py export_session report.md markdown
+math export_session report.md markdown
 ```
 
 **3. Reusable Function Libraries**
 ```bash
 # Create library of utility functions
-python math_cli.py def celsius_to_kelvin c = add $c 273.15
-python math_cli.py def fahrenheit_to_celsius f = multiply (subtract $f 32) 0.5556
+math def celsius_to_kelvin c = add $c 273.15
+math def fahrenheit_to_celsius f = multiply (subtract $f 32) 0.5556
 
 # Export for reuse in other sessions
-python math_cli.py export_funcs temperature_utils.json
+math export_funcs temperature_utils.json
 
 # Later, in a new session
-python math_cli.py import_funcs temperature_utils.json
+math import_funcs temperature_utils.json
 ```
 
 **4. Academic Papers**
 ```bash
 # Export calculations as LaTeX
-python math_cli.py set sample_size 100
-python math_cli.py set mean 42.5
-python math_cli.py set stdev 8.2
-python math_cli.py export_session results.tex latex
+math set sample_size 100
+math set mean 42.5
+math set stdev 8.2
+math export_session results.tex latex
 
 # Include in your LaTeX document
 ```
@@ -950,9 +983,9 @@ python math_cli.py export_session results.tex latex
 Run Math CLI in interactive mode to perform multiple calculations in succession with beautiful visual enhancements:
 
 ```bash
-python math_cli.py --interactive
+math --interactive
 # or
-python math_cli.py -i
+math -i
 ```
 
 ### Visual Enhancements (Phase 1)
@@ -995,7 +1028,7 @@ Track and organize your work across multiple named sessions with powerful naviga
 **Quick Start:**
 ```bash
 # Start interactive mode - a session is auto-created
-python math_cli.py --interactive
+math --interactive
 
 # Create named sessions for different workflows
 ❯ session new Work Projects
@@ -1068,7 +1101,7 @@ python math_cli.py --interactive
 ❯ :sp                        # Go back
 
 # Next day: Automatically restore last session
-❯ python math_cli.py -i
+❯ math -i
 ℹ️  Restored session: 'Data Analysis' (5 commands)
 ```
 
@@ -1111,13 +1144,13 @@ For users who prefer minimal visuals or have accessibility needs:
 
 ```bash
 # Disable colored output
-python math_cli.py --interactive --no-color
+math --interactive --no-color
 
 # Disable animations
-python math_cli.py --interactive --no-animations
+math --interactive --no-animations
 
 # Disable both
-python math_cli.py --interactive --no-color --no-animations
+math --interactive --no-color --no-animations
 ```
 
 ### Features in Interactive Mode
@@ -1236,13 +1269,13 @@ Math CLI features a flexible plugin system that allows you to extend its functio
 To use custom plugins, specify the directory containing your plugin files:
 
 ```bash
-python math_cli.py --plugin-dir /path/to/plugins add 5 3
+math --plugin-dir /path/to/plugins add 5 3
 ```
 
 You can specify multiple plugin directories:
 
 ```bash
-python math_cli.py --plugin-dir /path/to/plugins1 --plugin-dir /path/to/plugins2 -i
+math --plugin-dir /path/to/plugins1 --plugin-dir /path/to/plugins2 -i
 ```
 
 ### Creating Custom Plugins
@@ -1279,7 +1312,7 @@ class HypotenuseOperation(MathOperation):
 
 Usage:
 ```bash
-python math_cli.py --plugin-dir /path/to/directory/containing/my_plugin.py hypotenuse 3 4
+math --plugin-dir /path/to/directory/containing/my_plugin.py hypotenuse 3 4
 Result: 5.0
 ```
 
@@ -1316,8 +1349,8 @@ class CylinderVolumeOperation(MathOperation):
 ## Command-Line Arguments
 
 ```
-usage: math_cli.py [-h] [--interactive] [--plugin-dir PLUGIN_DIR]
-                   [--list-plugins] [--no-color] [--no-animations] ...
+usage: math [-h] [--interactive] [--plugin-dir PLUGIN_DIR]
+            [--list-plugins] [--no-color] [--no-animations] ...
 
 Perform mathematical operations
 
@@ -1371,4 +1404,4 @@ When contributing code, please ensure:
 ---
 
 For more information, bug reports, or to contribute, please visit:
-[https://github.com/yourusername/math-cli](https://github.com/yourusername/math-cli)
+[https://github.com/Schaafd/math_cli](https://github.com/Schaafd/math_cli)
