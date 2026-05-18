@@ -1,3 +1,26 @@
+def parse_argument_spec(argument):
+    """Normalize the legacy plugin argument convention into metadata."""
+    raw_name = str(argument)
+    required = True
+    variadic = False
+
+    name = raw_name
+    if name.startswith("?"):
+        required = False
+        name = name[1:]
+    if name.startswith("*"):
+        variadic = True
+        name = name[1:]
+
+    return {
+        "name": name,
+        "display": raw_name,
+        "required": required,
+        "variadic": variadic,
+        "type": "string",
+    }
+
+
 class MathOperation:
     """Base class for all math operations."""
     name = None
@@ -14,10 +37,12 @@ class MathOperation:
     @classmethod
     def get_metadata(cls):
         """Return operation metadata."""
+        arg_specs = [parse_argument_spec(arg) for arg in cls.args]
         return {
             'name': cls.name,
             'args': cls.args,
+            'arg_specs': arg_specs,
             'help': cls.help,
             'category': getattr(cls, 'category', 'general'),
-            'variadic': cls.variadic
+            'variadic': cls.variadic or any(spec["variadic"] for spec in arg_specs)
         }

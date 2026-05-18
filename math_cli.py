@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Sequence
 
 from cli.command_parser import (
     create_argument_parser,
@@ -11,7 +11,6 @@ from cli.command_parser import (
     parse_and_validate_args,
     parse_global_args,
 )
-from cli.interactive_mode import run_interactive_mode
 from core.plugin_manager import PluginManager
 from utils.helpers import format_plugin_list
 
@@ -20,12 +19,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     argv = list(argv) if argv is not None else sys.argv[1:]
 
-    base_dir = Path(__file__).parent
     global_parser = create_global_argument_parser()
     global_args, remaining_args = parse_global_args(global_parser, argv)
 
     plugin_manager = _initialize_plugin_manager(
-        base_dir,
         global_args.plugin_dir or [],
     )
 
@@ -49,6 +46,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if global_args.interactive:
+        from cli.interactive_mode import run_interactive_mode
+
         enable_colors = not global_args.no_color
         enable_animations = not global_args.no_animations
 
@@ -97,17 +96,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _initialize_plugin_manager(
-    base_dir: Path,
-    extra_directories: Iterable[str],
+    extra_directories: Sequence[str],
 ) -> PluginManager:
     """Create a plugin manager configured with built-in and custom plugins."""
 
     plugin_manager = PluginManager()
 
-    builtin_dir = base_dir / "plugins"
-    directories: Iterable[Path] = [builtin_dir, *map(Path, extra_directories)]
-
-    for directory in directories:
+    for directory in map(Path, extra_directories):
         plugin_manager.add_plugin_directory(str(directory.resolve()))
 
     plugin_manager.discover_plugins()

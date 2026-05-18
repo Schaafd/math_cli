@@ -39,6 +39,30 @@ def test_main_executes_add_and_prints_result(capsys):
     assert "Result: 5.0" in out or "Result: 5" in out
 
 
+def test_main_executes_string_expression_operation(capsys):
+    exit_code = run_cli(["math_cli.py", "derivative", "x**2", "x"])
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "Result: 2*x" in out
+
+
+def test_main_executes_variable_operation_with_string_name(capsys):
+    exit_code = run_cli(["math_cli.py", "set", "cli_test_value", "10"])
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "Result: $cli_test_value = 10" in out
+
+
+def test_main_executes_optional_argument_operation(tmp_path, capsys):
+    csv_path = tmp_path / "data.csv"
+    csv_path.write_text("value\n1\n2\n")
+
+    exit_code = run_cli(["math_cli.py", "load_data", str(csv_path), "csv", "cli_data"])
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "Loaded 2 rows" in out
+
+
 def test_main_accepts_additional_plugin_directory(tmp_path, capsys):
     plugin_dir = tmp_path / "custom_plugins"
     plugin_dir.mkdir()

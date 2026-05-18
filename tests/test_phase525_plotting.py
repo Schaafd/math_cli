@@ -8,6 +8,7 @@ import os
 
 from core.plugin_manager import PluginManager
 from utils.data_io import get_data_manager
+from utils.plotting import plot_expression
 
 
 class TestPlottingOperations:
@@ -244,6 +245,15 @@ class TestPlottingIntegration:
         # Histogram should handle NaN
         result = self.manager.execute_operation('plot_hist', 'with_nans', 'value')
         assert 'Plotted histogram' in result
+
+
+def test_plot_expression_uses_restricted_parser():
+    result = plot_expression("sin(x)", 0, 1)
+    assert "Error" not in result
+
+    malicious = "__import__('os').system('echo unsafe')"
+    blocked = plot_expression(malicious, 0, 1)
+    assert "Error evaluating expression" in blocked
 
 
 if __name__ == '__main__':

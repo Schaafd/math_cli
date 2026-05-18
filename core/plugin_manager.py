@@ -12,6 +12,7 @@ class PluginManager:
     def __init__(self):
         self.operations: Dict[str, Type[MathOperation]] = {}
         self.plugin_dirs: List[Path] = []
+        self.duplicate_operations: Dict[str, List[str]] = {}
         self._variable_substitution_enabled = True
 
     def register_operation(self, operation_class: Type[MathOperation]) -> None:
@@ -21,6 +22,21 @@ class PluginManager:
 
         if not operation_class.name:
             raise ValueError(f"Operation {operation_class.__name__} does not have a name")
+
+        existing_operation = self.operations.get(operation_class.name)
+        if existing_operation is not None:
+            previous = f"{existing_operation.__module__}.{existing_operation.__name__}"
+            current = f"{operation_class.__module__}.{operation_class.__name__}"
+            self.duplicate_operations.setdefault(operation_class.name, [previous])
+            if current not in self.duplicate_operations[operation_class.name]:
+                self.duplicate_operations[operation_class.name].append(current)
+
+            existing_is_builtin = existing_operation.__module__.startswith("plugins.")
+            current_is_builtin = operation_class.__module__.startswith("plugins.")
+            if not (existing_is_builtin and current_is_builtin):
+                raise ValueError(
+                    f"Operation name '{operation_class.name}' is already registered by {previous}"
+                )
 
         self.operations[operation_class.name] = operation_class
 
@@ -140,6 +156,10 @@ class PluginManager:
     def get_operations_metadata(self) -> Dict:
         """Return metadata for all registered operations."""
         return {name: op.get_metadata() for name, op in self.operations.items()}
+
+    def get_duplicate_operations(self) -> Dict[str, List[str]]:
+        """Return operation names that were defined by multiple plugin classes."""
+        return {name: owners[:] for name, owners in self.duplicate_operations.items()}
 
     def _convert_string_to_type(self, value: str) -> Any:
         """Convert string to appropriate type (number or boolean).

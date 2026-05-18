@@ -415,24 +415,14 @@ def plot_expression(expression: str, x_start: float, x_end: float,
     Returns:
         ASCII art plot or error message
     """
-    # Create a safe evaluation function
-    safe_dict = {
-        'sin': math.sin,
-        'cos': math.cos,
-        'tan': math.tan,
-        'exp': math.exp,
-        'log': math.log,
-        'sqrt': math.sqrt,
-        'abs': abs,
-        'pi': math.pi,
-        'e': math.e,
-        '__builtins__': {}  # Prevent access to builtins
-    }
-
     try:
-        # Test evaluation
-        test_func = lambda x: eval(expression, {"x": x, **safe_dict})
-        test_func(0)  # Test that it works
+        from plugins.calculus_plugin import _parse_expression
+        import sympy as sp
+
+        x = sp.Symbol('x')
+        parsed_expression = _parse_expression(expression, ['x'])
+        test_func = sp.lambdify(x, parsed_expression, 'math')
+        test_func(0)
 
         plotter = ASCIIPlotter(width=width, height=height)
         return plotter.plot_function(test_func, x_start, x_end)

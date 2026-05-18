@@ -1,4 +1,5 @@
 from typing import Dict, Any
+from cli.command_parser import _argument_specs, coerce_argument_value
 from utils.history import HistoryManager
 from utils.sessions import get_session_manager
 from utils.visual import (
@@ -259,47 +260,59 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
 
     def process_args(op_name, arg_parts):
         """Process and validate command arguments."""
-        required_args = operations_metadata[op_name]['args']
-        is_variadic = operations_metadata[op_name].get('variadic', False)
+        op_info = operations_metadata[op_name]
+        arg_specs = _argument_specs(op_info)
+        is_variadic = op_info.get('variadic', False)
+        has_variadic_spec = any(spec.get('variadic') for spec in arg_specs)
 
-        # For variadic functions, we need at least one argument (unless explicitly no args required)
-        if is_variadic:
-            if len(required_args) > 0 and len(arg_parts) == 0:
+        if is_variadic and not has_variadic_spec:
+            if len(arg_parts) == 0:
                 print_error(f"{op_name} requires at least one argument",
-                           f"Usage: {op_name} <number1> <number2> ...")
+                           f"Usage: {op_name} <value1> <value2> ...")
                 return None
-        else:
-            # For non-variadic functions, check exact argument count
-            if len(arg_parts) < len(required_args):
-                print_error(f"Not enough arguments for {op_name}",
-                           f"Expected {len(required_args)} arguments: {', '.join(required_args)}")
-                return None
+            return [coerce_argument_value(arg) for arg in arg_parts]
 
-        # Parse arguments
+        min_args = sum(
+            1
+            for spec in arg_specs
+            if spec.get('required', True) and not spec.get('variadic')
+        )
+        has_variadic_tail = any(spec.get('variadic') for spec in arg_specs)
+        max_args = None if has_variadic_tail else len(arg_specs)
+
+        if len(arg_parts) < min_args:
+            expected = ', '.join(str(spec['display']) for spec in arg_specs)
+            print_error(f"Not enough arguments for {op_name}",
+                       f"Expected: {expected}")
+            return None
+
+        if max_args is not None and len(arg_parts) > max_args:
+            print_error(f"Too many arguments for {op_name}",
+                       f"Expected at most {max_args} argument(s)")
+            return None
+
         arg_values = []
+        arg_index = 0
 
-        if is_variadic:
-            # For variadic functions, parse all provided arguments
-            for i, arg_part in enumerate(arg_parts):
-                try:
-                    arg_values.append(float(arg_part))
-                except ValueError:
-                    print_error(f"Invalid argument '{arg_part}' at position {i+1}",
-                               "Expected a numeric value")
+        for spec in arg_specs:
+            if spec.get('variadic'):
+                remaining = arg_parts[arg_index:]
+                if spec.get('required', True) and not remaining:
+                    print_error(f"{op_name} requires at least one value for {spec['name']}")
                     return None
-        else:
-            # For fixed-argument functions, parse only the required number
-            for i, arg_name in enumerate(required_args):
-                try:
-                    if arg_name == 'n' and op_name == 'factorial':
-                        # Factorial needs integer
-                        arg_values.append(int(float(arg_parts[i])))
-                    else:
-                        arg_values.append(float(arg_parts[i]))
-                except ValueError:
-                    print_error(f"Invalid argument '{arg_parts[i]}' for parameter '{arg_name}'",
-                               "Expected a numeric value")
+                arg_values.extend(coerce_argument_value(arg) for arg in remaining)
+                arg_index = len(arg_parts)
+                break
+
+            if arg_index >= len(arg_parts):
+                if spec.get('required', True):
+                    print_error(f"Missing argument for {op_name}",
+                               f"Expected parameter: {spec['name']}")
                     return None
+                continue
+
+            arg_values.append(coerce_argument_value(arg_parts[arg_index]))
+            arg_index += 1
 
         return arg_values
 
