@@ -8,6 +8,7 @@ from typing import Sequence
 from cli.command_parser import (
     create_argument_parser,
     create_global_argument_parser,
+    format_unknown_operation_error,
     parse_and_validate_args,
     parse_global_args,
 )
@@ -69,6 +70,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         operation_parser.print_help()
         return 0
 
+    operation_name = remaining_args[0]
+    if not operation_name.startswith('-') and operation_name not in operations_metadata:
+        print(
+            format_unknown_operation_error(
+                operation_name,
+                operations_metadata,
+                prog=operation_parser.prog,
+            ),
+            file=sys.stderr,
+        )
+        return 2
+
     try:
         args = operation_parser.parse_args(remaining_args)
         if args.operation:
@@ -84,12 +97,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     except SystemExit as exc:
         if exc.code == 0:
             return 0
-
-        if remaining_args:
-            op_name = remaining_args[0]
-            if op_name not in operations_metadata:
-                print(f"Error: Unknown operation '{op_name}'")
-                print("\nUse --list-plugins to see available operations")
         return exc.code
 
     return 0

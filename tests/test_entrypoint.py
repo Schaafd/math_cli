@@ -103,3 +103,18 @@ def test_main_displays_help_for_global_help_flag(capsys):
     out = capsys.readouterr().out
     assert "usage:" in out.lower()
     assert "add" in out
+
+
+def test_main_unknown_operation_is_concise_and_suggests_match(capsys):
+    exit_code = run_cli(["math_cli.py", "sub", "1", "2"])
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    output = captured.out + captured.err
+    assert "Error: Unknown operation 'sub'" in output
+    assert "Did you mean: subtract" in output
+    assert "math_cli.py subtract <a> <b>" in output
+    assert "Use --list-plugins to see available operations." in output
+    assert "invalid choice" not in output
+    assert "choose from" not in output
+    assert "usage:" not in output.lower()

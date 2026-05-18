@@ -66,6 +66,20 @@ back to `pipx install --force --editable .`, and finally falls back to
 `python3 -m pip install --user --editable .`. If the final `pip` fallback is used
 and `math` is not found, add your Python user scripts directory to `PATH`.
 
+### Update an Existing Local Install
+
+After making local changes, update the installed `math` command from this checkout:
+
+```bash
+./update.sh
+```
+
+The update routine reinstalls the package in editable mode, then verifies:
+
+- `math add 2 3` returns the expected result
+- `math sub 1 2` shows the concise unknown-operation error instead of the long
+  `argparse` choices list
+
 ### Install Without Cloning
 
 If you already use `uv` or `pipx`, you can install directly from GitHub:

@@ -1,6 +1,7 @@
 """Utilities for building and validating command line parsers."""
 
 import argparse
+from difflib import get_close_matches
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 
@@ -125,6 +126,118 @@ def create_argument_parser(
     # Global options are handled separately in the main function
 
     return parser
+
+
+def suggest_operation_names(
+    unknown_operation: str,
+    operations_metadata: Dict[str, Dict[str, Any]],
+    max_suggestions: int = 3,
+) -> List[str]:
+    """Return likely operation names for a mistyped command."""
+
+    if not unknown_operation or max_suggestions <= 0:
+        return []
+
+    candidates = sorted(operations_metadata.keys())
+    unknown_lower = unknown_operation.lower()
+
+    prefix_matches = [
+        candidate for candidate in candidates
+        if candidate.lower().startswith(unknown_lower)
+    ]
+    if prefix_matches:
+        return prefix_matches[:max_suggestions]
+
+    token_prefix_matches = [
+        candidate for candidate in candidates
+        if candidate not in prefix_matches
+        and any(part.startswith(unknown_lower) for part in candidate.lower().split('_'))
+    ]
+    close_matches = get_close_matches(
+        unknown_operation,
+        candidates,
+        n=max_suggestions * 2,
+        cutoff=0.6,
+    )
+    substring_matches = [
+        candidate for candidate in candidates
+        if len(unknown_lower) >= 3
+        and unknown_lower in candidate.lower()
+        and candidate not in prefix_matches
+        and candidate not in token_prefix_matches
+    ]
+
+    suggestions = []
+    for group in (
+        prefix_matches,
+        token_prefix_matches,
+        close_matches,
+        substring_matches,
+    ):
+        for candidate in group:
+            if candidate not in suggestions:
+                suggestions.append(candidate)
+            if len(suggestions) >= max_suggestions:
+                return suggestions
+
+    return suggestions
+
+
+def format_operation_usage(
+    operation: str,
+    operation_metadata: Dict[str, Any],
+) -> str:
+    """Return a compact one-line usage example for an operation."""
+
+    arg_specs = _argument_specs(operation_metadata)
+    usage_parts = [operation]
+
+    is_variadic = operation_metadata.get('variadic', False)
+    if is_variadic and not any(spec.get('variadic') for spec in arg_specs):
+        dest = arg_specs[0]['name'] if arg_specs else 'values'
+        usage_parts.append(f"<{dest}> ...")
+        return " ".join(usage_parts)
+
+    for spec in arg_specs:
+        placeholder = f"<{spec['name']}>"
+        if spec.get('variadic'):
+            placeholder = f"{placeholder} ..."
+        elif not spec.get('required', True):
+            placeholder = f"[{placeholder}]"
+
+        usage_parts.append(placeholder)
+
+    return " ".join(usage_parts)
+
+
+def format_unknown_operation_error(
+    unknown_operation: str,
+    operations_metadata: Dict[str, Dict[str, Any]],
+    *,
+    prog: str = "math",
+) -> str:
+    """Return a concise, user-focused error for an unknown operation."""
+
+    lines = [f"Error: Unknown operation '{unknown_operation}'"]
+    suggestions = suggest_operation_names(unknown_operation, operations_metadata)
+
+    if suggestions:
+        lines.append(f"Did you mean: {', '.join(suggestions)}?")
+        lines.append("")
+        lines.append("Try:")
+        best_match = suggestions[0]
+        usage = format_operation_usage(
+            best_match,
+            operations_metadata[best_match],
+        )
+        lines.append(f"  {prog} {usage}")
+    else:
+        lines.append("No close operation names found.")
+
+    lines.append("")
+    lines.append("Use --list-plugins to see available operations.")
+    return "\n".join(lines)
+
 
 def parse_and_validate_args(args_namespace: Any, operations_metadata: Dict) -> Dict:
     """Parse and validate command line arguments."""
