@@ -183,14 +183,41 @@ commands, session tabs, view buttons, bookmark, and export actions are clickable
 
 Useful shortcuts:
 
-- `F5` or `Ctrl+J` - run input
+- `F5` - run input
 - `Ctrl+N` - new session
 - `F2` / `F3` - previous or next session
 - `Ctrl+O` - operations view
-- `Ctrl+H` - history view
+- `F6` - history view
+- `F7` - settings view
 - `Ctrl+B` - bookmark latest result
 - `Ctrl+E` - export Markdown history
 - `Ctrl+Q` - exit
+
+The TUI creates an editable config file at:
+
+```bash
+~/.config/math_cli/tui.json
+```
+
+Change that file directly to customize the TUI. The settings view shows the
+active config path. Useful settings include:
+
+```json
+{
+  "theme": "midnight",
+  "quick_commands": ["add", "subtract", "multiply", "divide", "power"],
+  "keybindings": {
+    "history": "f6",
+    "settings": "f7"
+  },
+  "side_panel_width": 44,
+  "session_tab_limit": 5
+}
+```
+
+Themes live in the same file under `themes`. Add a new theme object, then set
+`theme` to that name. `Ctrl+H`, `backspace`, and `delete` are reserved for text
+editing and are ignored if assigned as global TUI shortcuts.
 
 ## Available Operations
 
@@ -1402,7 +1429,7 @@ class CylinderVolumeOperation(MathOperation):
 ## Command-Line Arguments
 
 ```
-usage: math [-h] [--interactive] [--plugin-dir PLUGIN_DIR]
+usage: math [-h] [--interactive] [--full-screen-tui] [--plugin-dir PLUGIN_DIR]
             [--list-plugins] [--no-color] [--no-animations] ...
 
 Perform mathematical operations
@@ -1413,6 +1440,8 @@ positional arguments:
 options:
   -h, --help            Show this help message and exit
   --interactive, -i     Run in interactive mode with visual enhancements
+  --full-screen-tui, --tui
+                        Run the clickable full-screen terminal UI
   --plugin-dir PLUGIN_DIR
                         Directory containing additional plugins
   --list-plugins        List available operation plugins

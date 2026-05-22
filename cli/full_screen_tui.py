@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Callable, Dict, List
 
 from cli.autocompletion import MathOperationCompleter
-from cli.command_engine import DEFAULT_QUICK_COMMANDS, MathCommandEngine
+from cli.command_engine import MathCommandEngine
+from cli.tui_config import RESERVED_EDITING_KEYS, TUIConfig
 from utils.history import HistoryManager
 from utils.sessions import get_session_manager
 
@@ -39,6 +40,9 @@ class FullScreenMathTUI:
         self.plugin_manager = plugin_manager
         self.operations_metadata = operations_metadata
         self.session_manager = get_session_manager()
+        self.config = TUIConfig(self.session_manager.config_dir / "tui.json")
+        self.theme = self.config.theme()
+        self.quick_commands = self.config.quick_commands(operations_metadata)
         self.history = HistoryManager(
             history_file=self.session_manager.config_dir / "history.json"
         )
@@ -50,7 +54,7 @@ class FullScreenMathTUI:
         )
 
         self.view = "operations"
-        self.status = "Full Screen TUI ready. Press Ctrl+Q to exit."
+        self.status = f"Full Screen TUI ready. Config: {self.config.config_file}"
         self.output_lines: List[str] = []
 
         self.output = TextArea(
@@ -73,7 +77,7 @@ class FullScreenMathTUI:
         )
 
         self._append_output("MathCLI Full Screen TUI")
-        self._append_output("Command syntax, expressions, assignments, sessions, and pipe chains are supported.")
+        self._append_output(f"Theme: {self.config.get('theme', 'midnight')}  Config: {self.config.config_file}")
         self._append_output("Examples: add 5 10 | multiply 3, radius = 12, pi * radius ^ 2")
 
     def run(self) -> None:
@@ -192,12 +196,14 @@ class FullScreenMathTUI:
         self.run_command("clear_vars")
 
     def _build_layout(self) -> Any:
-        from prompt_toolkit.layout.containers import DynamicContainer, HSplit, VSplit, Window
+        from prompt_toolkit.layout.containers import ConditionalContainer, DynamicContainer, HSplit, VSplit, Window
         from prompt_toolkit.layout.dimension import Dimension
+        from prompt_toolkit.filters import Condition
 
         header = HSplit(
             [
-                self.Label(lambda: f" MathCLI  |  {self._current_session_label()}  |  {self.status}"),
+                self.Label(lambda: f" MathCLI  |  {self._current_session_label()}"),
+                self.Label(lambda: f" {self.status}"),
                 DynamicContainer(self._build_session_bar),
             ],
             style="class:header",
@@ -207,10 +213,11 @@ class FullScreenMathTUI:
             [
                 *[
                     self.Button(command, handler=lambda cmd=command: self.insert_command(cmd), width=12)
-                    for command in DEFAULT_QUICK_COMMANDS
+                    for command in self.quick_commands
                 ],
                 self.Button("Browse", handler=lambda: self.set_view("operations"), width=10),
                 self.Button("History", handler=lambda: self.set_view("history"), width=10),
+                self.Button("Settings", handler=lambda: self.set_view("settings"), width=11),
                 self.Button("Bookmark", handler=self.bookmark_latest, width=12),
                 self.Button("Export", handler=self.export_markdown, width=10),
                 Window(width=Dimension(weight=1)),
@@ -228,21 +235,24 @@ class FullScreenMathTUI:
             [
                 quick_bar,
                 self.Frame(self.input, title="Input"),
-                self.Label(
-                    " Ctrl+Enter/F5 run  Ctrl+N new session  F2/F3 sessions  Ctrl+O operations  Ctrl+H history  Ctrl+E export  Ctrl+Q exit"
-                ),
+                self.Label(lambda: f" {self._shortcut_help()}"),
             ],
             style="class:footer",
         )
 
-        return HSplit([header, body, footer])
+        footer_container = ConditionalContainer(
+            footer,
+            filter=Condition(lambda: bool(self.config.get("show_footer", True))),
+        )
+
+        return HSplit([header, body, footer_container])
 
     def _build_session_bar(self) -> Any:
         from prompt_toolkit.layout.containers import VSplit, Window
         from prompt_toolkit.layout.dimension import Dimension
 
         buttons = []
-        for session in self.session_manager.list_sessions()[:5]:
+        for session in self.session_manager.list_sessions()[: int(self.config.get("session_tab_limit", 5))]:
             label = session["name"][:16]
             if session["is_active"]:
                 label = f"* {label}"
@@ -268,11 +278,11 @@ class FullScreenMathTUI:
             read_only=True,
             scrollbar=True,
             focusable=True,
-            width=Dimension(preferred=38),
+            width=Dimension(preferred=max(30, int(self.config.get("side_panel_width", 44)) - 4)),
             wrap_lines=True,
             style="class:side",
         )
-        return self.Frame(area, title=title, width=Dimension(preferred=42))
+        return self.Frame(area, title=title, width=Dimension(preferred=max(34, int(self.config.get("side_panel_width", 44)))))
 
     def _side_panel_text(self) -> str:
         if self.view == "history":
@@ -316,15 +326,23 @@ class FullScreenMathTUI:
                 "Settings",
                 "",
                 f"Current session: {info.get('name', 'none')}",
+                f"TUI config: {self.config.config_file}",
+                f"Theme: {self.config.get('theme', 'midnight')}",
+                f"Quick commands: {', '.join(self.quick_commands)}",
                 "",
-                "Clickable actions:",
-                "- + New creates a session",
-                "- Bookmark saves latest result",
-                "- Export writes Markdown history",
+                "Edit tui.json to change:",
+                "- theme",
+                "- custom themes",
+                "- quick_commands",
+                "- keybindings",
+                "- side_panel_width",
+                "- session_tab_limit",
                 "",
                 "Keyboard:",
                 "Ctrl+N: new session",
                 "F2/F3: previous/next session",
+                "F6: history",
+                "F7: settings",
                 "Ctrl+B: bookmark latest",
                 "Ctrl+E: export Markdown",
             ]
@@ -336,75 +354,52 @@ class FullScreenMathTUI:
 
         kb = KeyBindings()
 
-        @kb.add("c-q")
-        def _(event: Any) -> None:
-            event.app.exit()
-
-        @kb.add("c-l")
-        def _(event: Any) -> None:
-            event.app.renderer.clear()
-
-        @kb.add("c-n")
-        def _(event: Any) -> None:
-            self.new_session()
-
-        @kb.add("f2")
-        def _(event: Any) -> None:
-            self.previous_session()
-
-        @kb.add("f3")
-        def _(event: Any) -> None:
-            self.next_session()
-
-        @kb.add("c-o")
-        def _(event: Any) -> None:
-            self.set_view("operations")
-
-        @kb.add("c-h")
-        def _(event: Any) -> None:
-            self.set_view("history")
-
-        @kb.add("c-g")
-        def _(event: Any) -> None:
-            self.set_view("settings")
-
-        @kb.add("c-b")
-        def _(event: Any) -> None:
-            self.bookmark_latest()
-
-        @kb.add("c-e")
-        def _(event: Any) -> None:
-            self.export_markdown()
-
-        @kb.add("f5")
-        @kb.add("c-j")
-        def _(event: Any) -> None:
-            self.submit_input()
-
-        @kb.add("escape", "c")
-        def _(event: Any) -> None:
-            self.input.text = ""
-            self.status = "Input cleared"
-            self._refresh()
-
-        @kb.add("f4")
-        def _(event: Any) -> None:
-            get_app().layout.focus(self.input)
+        self._bind(kb, "quit", lambda event: event.app.exit())
+        self._bind(kb, "clear_screen", lambda event: event.app.renderer.clear())
+        self._bind(kb, "new_session", lambda event: self.new_session())
+        self._bind(kb, "previous_session", lambda event: self.previous_session())
+        self._bind(kb, "next_session", lambda event: self.next_session())
+        self._bind(kb, "operations", lambda event: self.set_view("operations"))
+        self._bind(kb, "history", lambda event: self.set_view("history"))
+        self._bind(kb, "settings", lambda event: self.set_view("settings"))
+        self._bind(kb, "bookmark", lambda event: self.bookmark_latest())
+        self._bind(kb, "export", lambda event: self.export_markdown())
+        self._bind(kb, "run", lambda event: self.submit_input())
+        self._bind(kb, "clear_input", lambda event: self._clear_input())
+        self._bind(kb, "focus_input", lambda event: get_app().layout.focus(self.input))
 
         return kb
 
+    def _bind(self, key_bindings: Any, action: str, handler: Callable[[Any], None]) -> None:
+        key_sequence = self.config.keybinding(action)
+        keys = tuple(part for part in key_sequence.split() if part)
+        if not keys or any(key in RESERVED_EDITING_KEYS for key in keys):
+            return
+
+        @key_bindings.add(*keys)
+        def _(event: Any) -> None:
+            handler(event)
+
     def _style(self) -> Any:
         from prompt_toolkit.styles import Style
+        theme = self.theme
 
         return Style.from_dict(
             {
-                "header": "bg:#1f2937 #ffffff",
-                "footer": "bg:#111827 #d1d5db",
-                "output": "bg:#0b1020 #e5e7eb",
-                "input": "bg:#111827 #ffffff",
-                "side": "bg:#111827 #d1d5db",
-                "button": "bg:#374151 #ffffff",
-                "button.focused": "bg:#2563eb #ffffff",
+                "": f"bg:{theme['background']} {theme['text']}",
+                "header": f"bg:{theme['panel_alt']} {theme['text']} bold",
+                "footer": f"bg:{theme['panel']} {theme['muted']}",
+                "output": f"bg:{theme['background']} {theme['text']}",
+                "input": f"bg:{theme['panel']} {theme['text']}",
+                "side": f"bg:{theme['panel']} {theme['muted']}",
+                "frame.border": f"{theme['border']}",
+                "frame.label": f"{theme['accent']} bold",
+                "button": f"bg:{theme['button']} {theme['text']}",
+                "button.focused": f"bg:{theme['button_focus']} {theme['text']} bold",
+                "text-area": f"bg:{theme['background']} {theme['text']}",
+                "text-area.prompt": f"{theme['accent_alt']} bold",
+                "scrollbar.background": f"bg:{theme['panel']}",
+                "scrollbar.button": f"bg:{theme['border']}",
             }
         )
 
@@ -434,3 +429,19 @@ class FullScreenMathTUI:
             get_app().invalidate()
         except Exception:
             pass
+
+    def _clear_input(self) -> None:
+        self.input.text = ""
+        self.status = "Input cleared"
+        self._refresh()
+
+    def _shortcut_help(self) -> str:
+        return (
+            f"{self.config.keybinding('run')} run  "
+            f"{self.config.keybinding('new_session')} new  "
+            f"{self.config.keybinding('previous_session')}/{self.config.keybinding('next_session')} sessions  "
+            f"{self.config.keybinding('operations')} ops  "
+            f"{self.config.keybinding('history')} history  "
+            f"{self.config.keybinding('settings')} settings  "
+            f"{self.config.keybinding('quit')} exit"
+        )

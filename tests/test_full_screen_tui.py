@@ -30,6 +30,7 @@ def test_tui_builds_layout_keybindings_and_style(tui):
     assert type(tui._build_side_panel()).__name__ == "Frame"
     assert type(tui._create_key_bindings()).__name__ == "KeyBindings"
     assert tui._style() is not None
+    assert tui.config.config_file.exists()
 
 
 def test_tui_runs_commands_and_tracks_history(tui):
@@ -70,6 +71,21 @@ def test_tui_views_and_side_panel_text(tui):
 
     tui.set_view("settings")
     assert "Settings" in tui._side_panel_text()
+    assert "tui.json" in tui._side_panel_text()
+
+
+def test_tui_keybindings_do_not_steal_backspace(tui):
+    key_bindings = tui._create_key_bindings()
+    bound_keys = {
+        key.value if hasattr(key, "value") else str(key)
+        for binding in key_bindings.bindings
+        for key in binding.keys
+    }
+
+    assert "c-h" not in bound_keys
+    assert "backspace" not in bound_keys
+    assert "delete" not in bound_keys
+    assert "f6" in bound_keys
 
 
 def test_tui_session_actions(tui):
