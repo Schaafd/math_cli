@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List
 
 from cli.autocompletion import MathOperationCompleter
 from cli.command_engine import MathCommandEngine
-from cli.tui_config import RESERVED_EDITING_KEYS, TUIConfig
+from cli.tui_config import DEFAULT_THEME_NAME, RESERVED_EDITING_KEYS, TUIConfig, VS_CODE_THEME_NAMES
 from utils.history import HistoryManager
 from utils.sessions import get_session_manager
 
@@ -156,7 +156,7 @@ class FullScreenMathTUI:
         )
 
         self._append_output("MathCLI Full Screen TUI")
-        self._append_output(f"Theme: {self.config.get('theme', 'midnight')}  Config: {self.config.config_file}")
+        self._append_output(f"Theme: {self.config.get('theme', DEFAULT_THEME_NAME)}  Config: {self.config.config_file}")
         self._append_output("Examples: add 5 10 | multiply 3, radius = 12, pi * radius ^ 2")
 
     def run(self) -> None:
@@ -212,12 +212,14 @@ class FullScreenMathTUI:
             self.settings_section = "themes"
             self.view = "settings"
         self.status = f"Showing {view}"
+        self._focus_input()
         self._refresh()
 
     def set_settings_section(self, section: str) -> None:
         self.view = "settings"
         self.settings_section = section
         self.status = f"Settings: {section}"
+        self._focus_input()
         self._refresh()
 
     def apply_theme(self, theme_name: str) -> None:
@@ -234,6 +236,7 @@ class FullScreenMathTUI:
             self.app.style = self._style()
         except Exception:
             pass
+        self._focus_input()
         self._refresh()
 
     def reload_config(self) -> None:
@@ -245,12 +248,14 @@ class FullScreenMathTUI:
             self.app.style = self._style()
         except Exception:
             pass
+        self._focus_input()
         self._refresh()
 
     def update_tui_setting(self, key: str, value: Any) -> None:
         self.config.config[key] = value
         self.config.save()
         self.status = f"Updated {key} = {value}"
+        self._focus_input()
         self._refresh()
 
     def new_session(self) -> None:
@@ -403,7 +408,7 @@ class FullScreenMathTUI:
             text=text,
             read_only=True,
             scrollbar=True,
-            focusable=True,
+            focusable=False,
             width=Dimension(preferred=max(30, int(self.config.get("side_panel_width", 44)) - 4)),
             wrap_lines=True,
             style="class:side",
@@ -425,7 +430,7 @@ class FullScreenMathTUI:
             text=self._settings_text(),
             read_only=True,
             scrollbar=True,
-            focusable=True,
+            focusable=False,
             width=Dimension(preferred=max(30, int(self.config.get("side_panel_width", 44)) - 4)),
             wrap_lines=True,
             style="class:side",
@@ -455,38 +460,58 @@ class FullScreenMathTUI:
         )
 
     def _theme_buttons(self) -> Any:
-        from prompt_toolkit.layout.containers import VSplit, Window
+        from prompt_toolkit.layout.containers import HSplit, VSplit, Window
         from prompt_toolkit.layout.dimension import Dimension
 
-        buttons = [
-            self.Button(
-                theme_name,
-                handler=lambda name=theme_name: self.apply_theme(name),
-                width=max(10, min(16, len(theme_name) + 4)),
-            )
-            for theme_name in sorted(self.config.get("themes", {}).keys())
-        ]
-        buttons.append(Window(width=Dimension(weight=1)))
-        return VSplit(buttons)
+        rows = []
+        theme_names = self._menu_theme_names()
+        for index in range(0, len(theme_names), 2):
+            row_names = theme_names[index:index + 2]
+            buttons = [
+                self.Button(
+                    theme_name,
+                    handler=lambda name=theme_name: self.apply_theme(name),
+                    width=max(10, min(16, len(theme_name) + 4)),
+                )
+                for theme_name in row_names
+            ]
+            buttons.append(Window(width=Dimension(weight=1)))
+            rows.append(VSplit(buttons, height=1))
+        return HSplit(rows)
+
+    def _menu_theme_names(self) -> List[str]:
+        themes = self.config.get("themes", {})
+        return [name for name in VS_CODE_THEME_NAMES if name in themes]
 
     def _layout_buttons(self) -> Any:
-        from prompt_toolkit.layout.containers import VSplit, Window
+        from prompt_toolkit.layout.containers import HSplit, VSplit, Window
         from prompt_toolkit.layout.dimension import Dimension
 
         width = int(self.config.get("side_panel_width", 44))
         tabs = int(self.config.get("session_tab_limit", 5))
-        return VSplit(
+        return HSplit(
             [
-                self.Button("Width -", handler=lambda: self.update_tui_setting("side_panel_width", max(34, width - 4)), width=10),
-                self.Button("Width +", handler=lambda: self.update_tui_setting("side_panel_width", min(72, width + 4)), width=10),
-                self.Button("Tabs -", handler=lambda: self.update_tui_setting("session_tab_limit", max(1, tabs - 1)), width=9),
-                self.Button("Tabs +", handler=lambda: self.update_tui_setting("session_tab_limit", min(10, tabs + 1)), width=9),
-                self.Button(
-                    "Footer",
-                    handler=lambda: self.update_tui_setting("show_footer", not bool(self.config.get("show_footer", True))),
-                    width=9,
+                VSplit(
+                    [
+                        self.Button("Width -", handler=lambda: self.update_tui_setting("side_panel_width", max(34, width - 4)), width=10),
+                        self.Button("Width +", handler=lambda: self.update_tui_setting("side_panel_width", min(72, width + 4)), width=10),
+                        self.Button("Tabs -", handler=lambda: self.update_tui_setting("session_tab_limit", max(1, tabs - 1)), width=9),
+                        Window(width=Dimension(weight=1)),
+                    ],
+                    height=1,
                 ),
-                Window(width=Dimension(weight=1)),
+                VSplit(
+                    [
+                        self.Button("Tabs +", handler=lambda: self.update_tui_setting("session_tab_limit", min(10, tabs + 1)), width=9),
+                        self.Button(
+                            "Footer",
+                            handler=lambda: self.update_tui_setting("show_footer", not bool(self.config.get("show_footer", True))),
+                            width=9,
+                        ),
+                        Window(width=Dimension(weight=1)),
+                    ],
+                    height=1,
+                ),
             ]
         )
 
@@ -521,13 +546,18 @@ class FullScreenMathTUI:
     def _settings_text(self) -> str:
         info = self.session_manager.get_current_session_info() or {}
         if self.settings_section == "themes":
-            themes = self.config.get("themes", {})
+            themes = {
+                name: self.config.get("themes", {})[name]
+                for name in self._menu_theme_names()
+                if name in self.config.get("themes", {})
+            }
             lines = [
                 "Themes",
                 "",
-                f"Active: {self.config.get('theme', 'midnight')}",
+                f"Active: {self.config.get('theme', DEFAULT_THEME_NAME)}",
                 "",
                 "Select a theme above, or edit tui.json to add a custom palette.",
+                "The menu lists 10 VS Code-inspired themes.",
                 "",
             ]
             for name, theme in sorted(themes.items()):
@@ -570,7 +600,7 @@ class FullScreenMathTUI:
                 "",
                 f"Current session: {info.get('name', 'none')}",
                 f"TUI config: {self.config.config_file}",
-                f"Theme: {self.config.get('theme', 'midnight')}",
+                f"Theme: {self.config.get('theme', DEFAULT_THEME_NAME)}",
                 f"Quick commands: {', '.join(self.quick_commands)}",
                 "",
                 "Edit tui.json to change:",

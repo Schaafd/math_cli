@@ -77,6 +77,8 @@ def test_tui_views_and_side_panel_text(tui):
     assert tui.view == "settings"
     assert tui.settings_section == "themes"
     assert "Themes" in tui._side_panel_text()
+    assert len(tui._menu_theme_names()) == 10
+    assert "tokyo-night" in tui._menu_theme_names()
 
     tui.set_settings_section("layout")
     assert "side_panel_width" in tui._side_panel_text()
@@ -164,16 +166,16 @@ def test_tui_clear_actions(tui):
 
 
 def test_tui_settings_actions_update_config(tui):
-    tui.apply_theme("paper")
-    assert tui.config.get("theme") == "paper"
-    assert "paper" in tui.status
+    tui.apply_theme("tokyo-night")
+    assert tui.config.get("theme") == "tokyo-night"
+    assert "tokyo-night" in tui.status
 
     current_width = int(tui.config.get("side_panel_width"))
     tui.update_tui_setting("side_panel_width", current_width + 4)
     assert tui.config.get("side_panel_width") == current_width + 4
 
     tui.reload_config()
-    assert tui.config.get("theme") == "paper"
+    assert tui.config.get("theme") == "tokyo-night"
 
 
 def test_tui_current_session_label_without_session(tui):

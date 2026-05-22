@@ -9,9 +9,12 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
+DEFAULT_THEME_NAME = "dark-plus"
+
+
 DEFAULT_TUI_CONFIG: Dict[str, Any] = {
-    "config_version": 2,
-    "theme": "midnight",
+    "config_version": 4,
+    "theme": DEFAULT_THEME_NAME,
     "show_footer": True,
     "session_tab_limit": 5,
     "side_panel_width": 44,
@@ -35,53 +38,172 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
         "clear_input": "escape c",
     },
     "themes": {
-        "midnight": {
-            "description": "Quiet dark theme with blue and green accents.",
-            "background": "#0b1020",
-            "panel": "#111827",
-            "panel_alt": "#172033",
-            "border": "#334155",
-            "accent": "#38bdf8",
-            "accent_alt": "#34d399",
-            "warning": "#f59e0b",
-            "error": "#f87171",
-            "text": "#e5e7eb",
-            "muted": "#9ca3af",
-            "button": "#243244",
-            "button_focus": "#2563eb",
+        "dark-plus": {
+            "description": "VS Code Dark+ inspired neutral dark theme.",
+            "background": "#1e1e1e",
+            "panel": "#252526",
+            "panel_alt": "#2d2d30",
+            "border": "#3e3e42",
+            "accent": "#569cd6",
+            "accent_alt": "#4ec9b0",
+            "warning": "#dcdcaa",
+            "error": "#f44747",
+            "text": "#d4d4d4",
+            "muted": "#858585",
+            "button": "#333333",
+            "button_focus": "#094771",
         },
-        "ember": {
-            "description": "Dark charcoal with warm command accents.",
-            "background": "#151413",
-            "panel": "#211f1d",
-            "panel_alt": "#2b2926",
-            "border": "#4a4038",
-            "accent": "#f97316",
-            "accent_alt": "#facc15",
-            "warning": "#fde047",
-            "error": "#fb7185",
-            "text": "#f4f1ec",
-            "muted": "#b7aea2",
-            "button": "#3b332d",
-            "button_focus": "#c2410c",
+        "light-plus": {
+            "description": "VS Code Light+ inspired clean light theme.",
+            "background": "#ffffff",
+            "panel": "#f3f3f3",
+            "panel_alt": "#e8e8e8",
+            "border": "#c8c8c8",
+            "accent": "#0451a5",
+            "accent_alt": "#008000",
+            "warning": "#795e26",
+            "error": "#cd3131",
+            "text": "#1f1f1f",
+            "muted": "#616161",
+            "button": "#e5e5e5",
+            "button_focus": "#cce8ff",
         },
-        "paper": {
-            "description": "Low-glare light theme.",
-            "background": "#f8fafc",
-            "panel": "#eef2f7",
-            "panel_alt": "#e2e8f0",
-            "border": "#94a3b8",
-            "accent": "#2563eb",
-            "accent_alt": "#047857",
-            "warning": "#b45309",
-            "error": "#dc2626",
-            "text": "#0f172a",
-            "muted": "#475569",
-            "button": "#dbe4ef",
-            "button_focus": "#93c5fd",
+        "monokai": {
+            "description": "Monokai-inspired high-energy dark theme.",
+            "background": "#272822",
+            "panel": "#2d2e27",
+            "panel_alt": "#3e3d32",
+            "border": "#75715e",
+            "accent": "#66d9ef",
+            "accent_alt": "#a6e22e",
+            "warning": "#e6db74",
+            "error": "#f92672",
+            "text": "#f8f8f2",
+            "muted": "#a59f85",
+            "button": "#3e3d32",
+            "button_focus": "#49483e",
+        },
+        "solarized-dark": {
+            "description": "Solarized Dark inspired low-contrast theme.",
+            "background": "#002b36",
+            "panel": "#073642",
+            "panel_alt": "#0b3a45",
+            "border": "#586e75",
+            "accent": "#268bd2",
+            "accent_alt": "#2aa198",
+            "warning": "#b58900",
+            "error": "#dc322f",
+            "text": "#839496",
+            "muted": "#657b83",
+            "button": "#073642",
+            "button_focus": "#586e75",
+        },
+        "solarized-light": {
+            "description": "Solarized Light inspired low-glare theme.",
+            "background": "#fdf6e3",
+            "panel": "#eee8d5",
+            "panel_alt": "#e6dec6",
+            "border": "#93a1a1",
+            "accent": "#268bd2",
+            "accent_alt": "#2aa198",
+            "warning": "#b58900",
+            "error": "#dc322f",
+            "text": "#586e75",
+            "muted": "#657b83",
+            "button": "#eee8d5",
+            "button_focus": "#d7e8ed",
+        },
+        "dracula": {
+            "description": "Dracula-inspired purple dark theme.",
+            "background": "#282a36",
+            "panel": "#343746",
+            "panel_alt": "#44475a",
+            "border": "#6272a4",
+            "accent": "#bd93f9",
+            "accent_alt": "#50fa7b",
+            "warning": "#f1fa8c",
+            "error": "#ff5555",
+            "text": "#f8f8f2",
+            "muted": "#b7b7b2",
+            "button": "#44475a",
+            "button_focus": "#6272a4",
+        },
+        "github-dark": {
+            "description": "GitHub Dark inspired muted dark theme.",
+            "background": "#0d1117",
+            "panel": "#161b22",
+            "panel_alt": "#21262d",
+            "border": "#30363d",
+            "accent": "#58a6ff",
+            "accent_alt": "#3fb950",
+            "warning": "#d29922",
+            "error": "#f85149",
+            "text": "#c9d1d9",
+            "muted": "#8b949e",
+            "button": "#21262d",
+            "button_focus": "#1f6feb",
+        },
+        "one-dark-pro": {
+            "description": "One Dark Pro inspired balanced dark theme.",
+            "background": "#282c34",
+            "panel": "#2f343d",
+            "panel_alt": "#353b45",
+            "border": "#4b5263",
+            "accent": "#61afef",
+            "accent_alt": "#98c379",
+            "warning": "#e5c07b",
+            "error": "#e06c75",
+            "text": "#abb2bf",
+            "muted": "#7f848e",
+            "button": "#3a3f4b",
+            "button_focus": "#528bff",
+        },
+        "nord": {
+            "description": "Nord-inspired cool arctic theme.",
+            "background": "#2e3440",
+            "panel": "#3b4252",
+            "panel_alt": "#434c5e",
+            "border": "#4c566a",
+            "accent": "#88c0d0",
+            "accent_alt": "#a3be8c",
+            "warning": "#ebcb8b",
+            "error": "#bf616a",
+            "text": "#eceff4",
+            "muted": "#d8dee9",
+            "button": "#434c5e",
+            "button_focus": "#5e81ac",
+        },
+        "tokyo-night": {
+            "description": "Tokyo Night inspired deep blue theme.",
+            "background": "#1a1b26",
+            "panel": "#24283b",
+            "panel_alt": "#292e42",
+            "border": "#414868",
+            "accent": "#7aa2f7",
+            "accent_alt": "#9ece6a",
+            "warning": "#e0af68",
+            "error": "#f7768e",
+            "text": "#c0caf5",
+            "muted": "#a9b1d6",
+            "button": "#292e42",
+            "button_focus": "#3d59a1",
         },
     },
 }
+
+
+VS_CODE_THEME_NAMES: List[str] = [
+    "dark-plus",
+    "light-plus",
+    "monokai",
+    "solarized-dark",
+    "solarized-light",
+    "dracula",
+    "github-dark",
+    "one-dark-pro",
+    "nord",
+    "tokyo-night",
+]
 
 
 LEGACY_KEYBINDINGS: Dict[str, str] = {
@@ -102,6 +224,8 @@ LEGACY_KEYBINDINGS: Dict[str, str] = {
 
 
 RESERVED_EDITING_KEYS = {"c-h", "backspace", "delete"}
+
+LEGACY_BUILT_IN_THEMES = {"midnight", "ember", "paper"}
 
 
 class TUIConfig:
@@ -133,10 +257,10 @@ class TUIConfig:
         return self.config.get(key, default)
 
     def theme(self) -> Dict[str, str]:
-        theme_name = str(self.config.get("theme", "midnight"))
+        theme_name = str(self.config.get("theme", DEFAULT_THEME_NAME))
         themes = self.config.get("themes", {})
-        theme = themes.get(theme_name) or themes.get("midnight") or DEFAULT_TUI_CONFIG["themes"]["midnight"]
-        return self._merge_theme(DEFAULT_TUI_CONFIG["themes"]["midnight"], theme)
+        theme = themes.get(theme_name) or themes.get(DEFAULT_THEME_NAME) or DEFAULT_TUI_CONFIG["themes"][DEFAULT_THEME_NAME]
+        return self._merge_theme(DEFAULT_TUI_CONFIG["themes"][DEFAULT_THEME_NAME], theme)
 
     def keybinding(self, action: str) -> str:
         configured = self.config.get("keybindings", {})
@@ -183,14 +307,27 @@ class TUIConfig:
 
     def _migrate_config(self, user_config: Dict[str, Any]) -> Dict[str, Any]:
         config = deepcopy(user_config)
-        if int(config.get("config_version", 1)) >= 2:
+        config_version = int(config.get("config_version", 1))
+        if config_version >= int(DEFAULT_TUI_CONFIG["config_version"]):
             return config
 
         configured_keys = config.setdefault("keybindings", {})
         default_keys = DEFAULT_TUI_CONFIG["keybindings"]
-        for action, legacy_key in LEGACY_KEYBINDINGS.items():
-            if configured_keys.get(action) == legacy_key:
-                configured_keys[action] = default_keys[action]
+        if config_version < 2:
+            for action, legacy_key in LEGACY_KEYBINDINGS.items():
+                if configured_keys.get(action) == legacy_key:
+                    configured_keys[action] = default_keys[action]
 
-        config["config_version"] = 2
+        if config_version < 3:
+            for action, default_key in default_keys.items():
+                configured_keys.setdefault(action, default_key)
+
+        if config_version < 4:
+            configured_themes = config.setdefault("themes", {})
+            for theme_name in LEGACY_BUILT_IN_THEMES:
+                configured_themes.pop(theme_name, None)
+            if config.get("theme") in LEGACY_BUILT_IN_THEMES:
+                config["theme"] = DEFAULT_THEME_NAME
+
+        config["config_version"] = int(DEFAULT_TUI_CONFIG["config_version"])
         return config
