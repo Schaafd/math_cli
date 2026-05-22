@@ -66,9 +66,35 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 0
 
+    if global_args.full_screen_tui:
+        from cli.full_screen_tui import run_full_screen_tui
+
+        try:
+            run_full_screen_tui(plugin_manager, operations_metadata)
+        except RuntimeError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        return 0
+
     if not remaining_args:
         operation_parser.print_help()
         return 0
+
+    expression_input = " ".join(remaining_args)
+    if _should_use_command_engine(expression_input, remaining_args, operations_metadata):
+        from cli.command_engine import MathCommandEngine
+
+        try:
+            execution = MathCommandEngine(
+                plugin_manager,
+                operations_metadata,
+                record_history=False,
+            ).execute(expression_input)
+            print(f"Result: {execution.result}")
+            return 0
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
 
     operation_name = remaining_args[0]
     if not operation_name.startswith('-') and operation_name not in operations_metadata:
@@ -100,6 +126,46 @@ def main(argv: Sequence[str] | None = None) -> int:
         return exc.code
 
     return 0
+
+
+def _should_use_command_engine(
+    expression_input: str,
+    remaining_args: Sequence[str],
+    operations_metadata: dict,
+) -> bool:
+    """Return True for one-shot inputs that use iOS-style syntax."""
+
+    from cli.command_engine import MathCommandEngine
+
+    if not remaining_args:
+        return False
+
+    if remaining_args[0].startswith("-"):
+        return False
+
+    if "|" in remaining_args or "|" in expression_input:
+        return True
+
+    if remaining_args[0] == "chain":
+        return True
+
+    if "=" in remaining_args or "=" in expression_input:
+        return True
+
+    if (
+        remaining_args[0] == "set"
+        and len(remaining_args) > 3
+        and MathCommandEngine.should_treat_as_expression(
+            " ".join(remaining_args[2:]),
+            operations_metadata,
+        )
+    ):
+        return True
+
+    return MathCommandEngine.should_treat_as_expression(
+        expression_input,
+        operations_metadata,
+    )
 
 
 def _initialize_plugin_manager(

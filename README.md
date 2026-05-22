@@ -153,6 +153,45 @@ math abs -42
 
 Each operation follows the pattern: `math <operation> <arguments>`
 
+Math CLI also accepts the expression style used by the iOS app:
+
+```bash
+math "7 + 9 * 2"
+math "sqrt(16) + sin(0)"
+math "add 7 2 | multiply 4 | subtract 6"
+```
+
+Use quotes around expressions so the shell does not treat characters like `*`
+or `|` as shell syntax. Assignment shortcuts are most useful in interactive
+mode or the Full Screen TUI, where the session stays alive.
+
+### Full Screen TUI
+
+Launch the clickable full-screen terminal interface with:
+
+```bash
+math --full-screen-tui
+# or
+math --tui
+```
+
+The Full Screen TUI uses the same command and expression rules as the iOS app:
+command suggestions, pinned quick commands, session switching, history view,
+bookmarks, Markdown export, assignment shortcuts, `ans`/`$` previous-result
+references, and iOS-style pipe chains. Mouse support is enabled, so quick
+commands, session tabs, view buttons, bookmark, and export actions are clickable.
+
+Useful shortcuts:
+
+- `F5` or `Ctrl+J` - run input
+- `Ctrl+N` - new session
+- `F2` / `F3` - previous or next session
+- `Ctrl+O` - operations view
+- `Ctrl+H` - history view
+- `Ctrl+B` - bookmark latest result
+- `Ctrl+E` - export Markdown history
+- `Ctrl+Q` - exit
+
 ## Available Operations
 
 To list all available operations:
