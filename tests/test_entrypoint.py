@@ -119,6 +119,14 @@ def test_main_displays_help_for_global_help_flag(capsys):
     assert "add" in out
 
 
+def test_main_displays_help_when_tui_flag_is_followed_by_help(capsys):
+    exit_code = run_cli(["math_cli.py", "--tui", "--help"])
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "usage:" in out.lower()
+    assert "--full-screen-tui" in out
+
+
 def test_main_unknown_operation_is_concise_and_suggests_match(capsys):
     exit_code = run_cli(["math_cli.py", "sub", "1", "2"])
 

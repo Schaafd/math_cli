@@ -46,6 +46,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(format_plugin_list(operations_metadata))
         return 0
 
+    if any(arg in ("-h", "--help") for arg in remaining_args):
+        operation_parser.print_help()
+        return 0
+
     if global_args.interactive:
         from cli.interactive_mode import run_interactive_mode
 
@@ -68,6 +72,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if global_args.full_screen_tui:
         from cli.full_screen_tui import run_full_screen_tui
+
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            print("Error: Full Screen TUI requires an interactive terminal.", file=sys.stderr)
+            return 1
 
         try:
             run_full_screen_tui(plugin_manager, operations_metadata)
