@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Sequence
 
 from cli.autocompletion import MathOperationCompleter
 from cli.command_engine import MathCommandEngine
@@ -21,6 +21,7 @@ class TUIButton:
         text: str,
         handler: Callable[[], None] | None = None,
         width: int = 12,
+        selected: Callable[[], bool] | None = None,
     ) -> None:
         from prompt_toolkit.key_binding import KeyBindings
         from prompt_toolkit.layout.containers import Window
@@ -30,6 +31,7 @@ class TUIButton:
         self.text = text
         self.handler = handler
         self.width = width
+        self.selected = selected or (lambda: False)
 
         kb = KeyBindings()
 
@@ -61,6 +63,11 @@ class TUIButton:
 
             if get_app().layout.has_focus(self):
                 return "class:button.focused"
+        except Exception:
+            pass
+        try:
+            if self.selected():
+                return "class:button.selected"
         except Exception:
             pass
         return "class:button"
@@ -108,10 +115,10 @@ class FullScreenMathTUI:
     """Prompt-toolkit full-screen application inspired by modern coding TUIs."""
 
     def __init__(self, plugin_manager: Any, operations_metadata: Dict[str, Dict[str, Any]]) -> None:
-        from prompt_toolkit.widgets import Frame, Label, TextArea
+        from prompt_toolkit.layout.dimension import Dimension
+        from prompt_toolkit.widgets import Label, TextArea
 
         self.Button = TUIButton
-        self.Frame = Frame
         self.Label = Label
         self.TextArea = TextArea
 
@@ -133,6 +140,11 @@ class FullScreenMathTUI:
 
         self.view = "operations"
         self.settings_section = "settings"
+        self.settings_tabs = ["themes", "layout", "keys", "reload"]
+        self.settings_tab_index = 0
+        self.menu_focus = "tabs"
+        self.theme_index = 0
+        self.layout_index = 0
         self.status = f"Full Screen TUI ready. Config: {self.config.config_file}"
         self.output_lines: List[str] = []
 
@@ -141,6 +153,7 @@ class FullScreenMathTUI:
             read_only=True,
             scrollbar=True,
             focusable=True,
+            height=Dimension(weight=1),
             wrap_lines=True,
             style="class:output",
         )
@@ -211,16 +224,29 @@ class FullScreenMathTUI:
         if view == "themes":
             self.settings_section = "themes"
             self.view = "settings"
+            self.settings_tab_index = self.settings_tabs.index("themes")
+            self.theme_index = self._active_theme_index()
+            self.menu_focus = "items"
+        elif view == "settings":
+            self.settings_section = "settings"
+            self.menu_focus = "tabs"
         self.status = f"Showing {view}"
         self._focus_input()
-        self._refresh()
+        self._refresh(clear=True)
 
     def set_settings_section(self, section: str) -> None:
+        if section == "reload":
+            self.reload_config()
+            return
+
         self.view = "settings"
         self.settings_section = section
+        if section in self.settings_tabs:
+            self.settings_tab_index = self.settings_tabs.index(section)
+        self.menu_focus = "items" if section in {"themes", "layout"} else "tabs"
         self.status = f"Settings: {section}"
         self._focus_input()
-        self._refresh()
+        self._refresh(clear=True)
 
     def apply_theme(self, theme_name: str) -> None:
         if theme_name not in self.config.get("themes", {}):
@@ -231,32 +257,36 @@ class FullScreenMathTUI:
         self.config.config["theme"] = theme_name
         self.config.save()
         self.theme = self.config.theme()
+        self.theme_index = self._active_theme_index()
+        self._replace_theme_line()
         self.status = f"Theme changed to {theme_name}"
         try:
             self.app.style = self._style()
         except Exception:
             pass
         self._focus_input()
-        self._refresh()
+        self._refresh(clear=True)
 
     def reload_config(self) -> None:
         self.config = TUIConfig(self.config.config_file)
         self.theme = self.config.theme()
         self.quick_commands = self.config.quick_commands(self.operations_metadata)
+        self.theme_index = self._active_theme_index()
+        self._replace_theme_line()
         self.status = "Reloaded TUI config"
         try:
             self.app.style = self._style()
         except Exception:
             pass
         self._focus_input()
-        self._refresh()
+        self._refresh(clear=True)
 
     def update_tui_setting(self, key: str, value: Any) -> None:
         self.config.config[key] = value
         self.config.save()
         self.status = f"Updated {key} = {value}"
         self._focus_input()
-        self._refresh()
+        self._refresh(clear=True)
 
     def new_session(self) -> None:
         name = f"Session {datetime.now().strftime('%b %d, %H:%M')}"
@@ -327,14 +357,51 @@ class FullScreenMathTUI:
         from prompt_toolkit.layout.dimension import Dimension
         from prompt_toolkit.filters import Condition
 
-        header = HSplit(
+        header = DynamicContainer(self._build_header)
+
+        body = DynamicContainer(self._build_body)
+
+        footer_container = ConditionalContainer(
+            DynamicContainer(self._build_footer),
+            filter=Condition(lambda: bool(self.config.get("show_footer", True)) and self.view != "settings"),
+        )
+
+        return HSplit([header, body, footer_container])
+
+    def _build_header(self) -> Any:
+        from prompt_toolkit.layout.containers import HSplit
+
+        if self.view == "settings":
+            return self.Label(
+                lambda: f" MathCLI  |  {self.status}  |  arrows/tab navigate  enter select  escape o ops  escape q exit",
+                style="class:header",
+            )
+
+        return HSplit(
             [
                 self.Label(lambda: f" MathCLI  |  {self._current_session_label()}"),
                 self.Label(lambda: f" {self.status}"),
-                DynamicContainer(self._build_session_bar),
+                self._build_session_bar(),
             ],
             style="class:header",
         )
+
+    def _build_body(self) -> Any:
+        from prompt_toolkit.layout.containers import VSplit
+
+        if self.view == "settings":
+            return self._build_settings_panel(full_width=True)
+
+        return VSplit(
+            [
+                self._panel(self.output, "Calculator", style="class:panel.output"),
+                self._build_side_panel(),
+            ]
+        )
+
+    def _build_footer(self) -> Any:
+        from prompt_toolkit.layout.containers import HSplit, VSplit, Window
+        from prompt_toolkit.layout.dimension import Dimension
 
         quick_bar = VSplit(
             [
@@ -352,28 +419,26 @@ class FullScreenMathTUI:
             ]
         )
 
-        body = VSplit(
-            [
-                self.Frame(self.output, title="Calculator"),
-                DynamicContainer(self._build_side_panel),
-            ]
-        )
-
-        footer = HSplit(
+        return HSplit(
             [
                 quick_bar,
-                self.Frame(self.input, title="Input"),
+                self._panel(self.input, "Input", style="class:panel.input"),
                 self.Label(lambda: f" {self._shortcut_help()}"),
             ],
             style="class:footer",
         )
 
-        footer_container = ConditionalContainer(
-            footer,
-            filter=Condition(lambda: bool(self.config.get("show_footer", True))),
-        )
+    def _panel(self, content: Any, title: str, style: str, width: Any | None = None) -> Any:
+        from prompt_toolkit.layout.containers import HSplit
 
-        return HSplit([header, body, footer_container])
+        return HSplit(
+            [
+                self.Label(f" {title} ", style=f"{style}.title"),
+                content,
+            ],
+            style=style,
+            width=width,
+        )
 
     def _build_session_bar(self) -> Any:
         from prompt_toolkit.layout.containers import VSplit, Window
@@ -404,16 +469,16 @@ class FullScreenMathTUI:
 
         title = self.view.title()
         text = self._side_panel_text()
-        area = self.TextArea(
-            text=text,
-            read_only=True,
-            scrollbar=True,
-            focusable=False,
+        area = self._read_only_text(
+            text,
             width=Dimension(preferred=max(30, int(self.config.get("side_panel_width", 44)) - 4)),
-            wrap_lines=True,
-            style="class:side",
         )
-        return self.Frame(area, title=title, width=Dimension(preferred=max(34, int(self.config.get("side_panel_width", 44)))))
+        return self._panel(
+            area,
+            title,
+            style="class:panel.side",
+            width=Dimension(preferred=max(34, int(self.config.get("side_panel_width", 44)))),
+        )
 
     def _side_panel_text(self) -> str:
         if self.view == "history":
@@ -422,28 +487,45 @@ class FullScreenMathTUI:
             return self._settings_text()
         return self._operations_text()
 
-    def _build_settings_panel(self) -> Any:
+    def _build_settings_panel(self, full_width: bool = False) -> Any:
         from prompt_toolkit.layout.containers import HSplit, VSplit, Window
         from prompt_toolkit.layout.dimension import Dimension
 
-        body = self.TextArea(
-            text=self._settings_text(),
-            read_only=True,
-            scrollbar=True,
-            focusable=False,
+        body = self._read_only_text(
+            self._settings_text(),
             width=Dimension(preferred=max(30, int(self.config.get("side_panel_width", 44)) - 4)),
-            wrap_lines=True,
-            style="class:side",
         )
 
         root_buttons = VSplit(
             [
-                self.Button("Themes", handler=lambda: self.set_settings_section("themes"), width=11),
-                self.Button("Layout", handler=lambda: self.set_settings_section("layout"), width=10),
-                self.Button("Keys", handler=lambda: self.set_settings_section("keys"), width=8),
-                self.Button("Reload", handler=self.reload_config, width=10),
+                self.Button(
+                    "Themes",
+                    handler=lambda: self.set_settings_section("themes"),
+                    width=11,
+                    selected=lambda: self._settings_tab_selected("themes"),
+                ),
+                self.Button(
+                    "Layout",
+                    handler=lambda: self.set_settings_section("layout"),
+                    width=10,
+                    selected=lambda: self._settings_tab_selected("layout"),
+                ),
+                self.Button(
+                    "Keys",
+                    handler=lambda: self.set_settings_section("keys"),
+                    width=8,
+                    selected=lambda: self._settings_tab_selected("keys"),
+                ),
+                self.Button(
+                    "Reload",
+                    handler=lambda: self.set_settings_section("reload"),
+                    width=10,
+                    selected=lambda: self._settings_tab_selected("reload"),
+                ),
                 Window(width=Dimension(weight=1)),
-            ]
+            ],
+            style="class:toolbar",
+            height=1,
         )
 
         children: List[Any] = [root_buttons]
@@ -453,10 +535,27 @@ class FullScreenMathTUI:
             children.append(self._layout_buttons())
 
         children.append(body)
-        return self.Frame(
+        width = None if full_width else Dimension(preferred=max(34, int(self.config.get("side_panel_width", 44))))
+        return self._panel(
             HSplit(children),
-            title=f"Settings / {self.settings_section.title()}",
-            width=Dimension(preferred=max(34, int(self.config.get("side_panel_width", 44)))),
+            f"Settings / {self.settings_section.title()}",
+            style="class:panel.side",
+            width=width,
+        )
+
+    def _read_only_text(self, text: str, width: Any) -> Any:
+        from prompt_toolkit.layout.containers import Window
+        from prompt_toolkit.layout.controls import FormattedTextControl
+        from prompt_toolkit.layout.dimension import Dimension
+        from prompt_toolkit.layout.margins import ScrollbarMargin
+
+        return Window(
+            FormattedTextControl(text),
+            width=width,
+            height=Dimension(weight=1),
+            right_margins=[ScrollbarMargin(display_arrows=True)],
+            wrap_lines=True,
+            style="class:side",
         )
 
     def _theme_buttons(self) -> Any:
@@ -472,8 +571,9 @@ class FullScreenMathTUI:
                     theme_name,
                     handler=lambda name=theme_name: self.apply_theme(name),
                     width=max(10, min(16, len(theme_name) + 4)),
+                    selected=lambda item_index=index + offset: self._theme_selected(item_index),
                 )
-                for theme_name in row_names
+                for offset, theme_name in enumerate(row_names)
             ]
             buttons.append(Window(width=Dimension(weight=1)))
             rows.append(VSplit(buttons, height=1))
@@ -483,37 +583,146 @@ class FullScreenMathTUI:
         themes = self.config.get("themes", {})
         return [name for name in VS_CODE_THEME_NAMES if name in themes]
 
+    def _active_theme_index(self) -> int:
+        theme_names = self._menu_theme_names()
+        active_theme = str(self.config.get("theme", DEFAULT_THEME_NAME))
+        if active_theme in theme_names:
+            return theme_names.index(active_theme)
+        return 0
+
     def _layout_buttons(self) -> Any:
         from prompt_toolkit.layout.containers import HSplit, VSplit, Window
         from prompt_toolkit.layout.dimension import Dimension
 
-        width = int(self.config.get("side_panel_width", 44))
-        tabs = int(self.config.get("session_tab_limit", 5))
+        actions = self._layout_actions()
         return HSplit(
             [
                 VSplit(
                     [
-                        self.Button("Width -", handler=lambda: self.update_tui_setting("side_panel_width", max(34, width - 4)), width=10),
-                        self.Button("Width +", handler=lambda: self.update_tui_setting("side_panel_width", min(72, width + 4)), width=10),
-                        self.Button("Tabs -", handler=lambda: self.update_tui_setting("session_tab_limit", max(1, tabs - 1)), width=9),
+                        self.Button(
+                            label,
+                            handler=handler,
+                            width=width,
+                            selected=lambda item_index=index: self._layout_selected(item_index),
+                        )
+                        for index, (label, handler, width) in enumerate(actions[:3])
+                    ] + [
                         Window(width=Dimension(weight=1)),
                     ],
                     height=1,
                 ),
                 VSplit(
                     [
-                        self.Button("Tabs +", handler=lambda: self.update_tui_setting("session_tab_limit", min(10, tabs + 1)), width=9),
                         self.Button(
-                            "Footer",
-                            handler=lambda: self.update_tui_setting("show_footer", not bool(self.config.get("show_footer", True))),
-                            width=9,
-                        ),
+                            label,
+                            handler=handler,
+                            width=width,
+                            selected=lambda item_index=index: self._layout_selected(item_index),
+                        )
+                        for index, (label, handler, width) in enumerate(actions[3:], start=3)
+                    ] + [
                         Window(width=Dimension(weight=1)),
                     ],
                     height=1,
                 ),
             ]
         )
+
+    def _layout_actions(self) -> List[tuple[str, Callable[[], None], int]]:
+        width = int(self.config.get("side_panel_width", 44))
+        tabs = int(self.config.get("session_tab_limit", 5))
+        return [
+            ("Width -", lambda: self.update_tui_setting("side_panel_width", max(34, width - 4)), 10),
+            ("Width +", lambda: self.update_tui_setting("side_panel_width", min(72, width + 4)), 10),
+            ("Tabs -", lambda: self.update_tui_setting("session_tab_limit", max(1, tabs - 1)), 9),
+            ("Tabs +", lambda: self.update_tui_setting("session_tab_limit", min(10, tabs + 1)), 9),
+            ("Footer", lambda: self.update_tui_setting("show_footer", not bool(self.config.get("show_footer", True))), 9),
+        ]
+
+    def _settings_tab_selected(self, tab: str) -> bool:
+        return self.view == "settings" and self.menu_focus == "tabs" and self.settings_tabs[self.settings_tab_index] == tab
+
+    def _theme_selected(self, index: int) -> bool:
+        return self.view == "settings" and self.settings_section == "themes" and self.menu_focus == "items" and self.theme_index == index
+
+    def _layout_selected(self, index: int) -> bool:
+        return self.view == "settings" and self.settings_section == "layout" and self.menu_focus == "items" and self.layout_index == index
+
+    def move_menu_selection(self, direction: str) -> None:
+        if self.view != "settings":
+            return
+
+        if self.menu_focus == "tabs":
+            if direction in {"left", "up"}:
+                self.settings_tab_index = (self.settings_tab_index - 1) % len(self.settings_tabs)
+            elif direction in {"right", "down"}:
+                self.settings_tab_index = (self.settings_tab_index + 1) % len(self.settings_tabs)
+            self.status = f"Selected {self.settings_tabs[self.settings_tab_index]}"
+            self._refresh()
+            return
+
+        if self.settings_section == "themes":
+            if direction == "up" and self.theme_index < 2:
+                self.menu_focus = "tabs"
+                self.status = f"Selected {self.settings_tabs[self.settings_tab_index]}"
+                self._refresh()
+                return
+            self.theme_index = self._move_grid_index(
+                self.theme_index,
+                len(self._menu_theme_names()),
+                columns=2,
+                direction=direction,
+            )
+            self.status = f"Selected theme {self._menu_theme_names()[self.theme_index]}"
+            self._refresh()
+            return
+
+        if self.settings_section == "layout":
+            if direction == "up" and self.layout_index < 3:
+                self.menu_focus = "tabs"
+                self.status = f"Selected {self.settings_tabs[self.settings_tab_index]}"
+                self._refresh()
+                return
+            self.layout_index = self._move_grid_index(
+                self.layout_index,
+                len(self._layout_actions()),
+                columns=3,
+                direction=direction,
+            )
+            self.status = f"Selected layout control {self._layout_actions()[self.layout_index][0]}"
+            self._refresh()
+
+    def activate_menu_selection(self) -> None:
+        if self.view != "settings":
+            return
+
+        if self.menu_focus == "tabs":
+            self.set_settings_section(self.settings_tabs[self.settings_tab_index])
+            return
+
+        if self.settings_section == "themes":
+            theme_names = self._menu_theme_names()
+            if theme_names:
+                self.apply_theme(theme_names[self.theme_index])
+            return
+
+        if self.settings_section == "layout":
+            actions = self._layout_actions()
+            if actions:
+                actions[self.layout_index][1]()
+
+    def _move_grid_index(self, index: int, count: int, columns: int, direction: str) -> int:
+        if count <= 0:
+            return 0
+        if direction == "left":
+            return (index - 1) % count
+        if direction == "right":
+            return (index + 1) % count
+        if direction == "down":
+            return (index + columns) % count
+        if direction == "up":
+            return (index - columns) % count
+        return index
 
     def _operations_text(self) -> str:
         grouped: Dict[str, List[str]] = {}
@@ -622,9 +831,11 @@ class FullScreenMathTUI:
 
     def _create_key_bindings(self) -> Any:
         from prompt_toolkit.application import get_app
+        from prompt_toolkit.filters import Condition
         from prompt_toolkit.key_binding import KeyBindings
 
         kb = KeyBindings()
+        settings_menu = Condition(lambda: self.view == "settings")
 
         self._bind(kb, "quit", lambda event: event.app.exit())
         self._bind(kb, "clear_screen", lambda event: event.app.renderer.clear())
@@ -640,6 +851,34 @@ class FullScreenMathTUI:
         self._bind(kb, "run", lambda event: self.submit_input())
         self._bind(kb, "clear_input", lambda event: self._clear_input())
         self._bind(kb, "focus_input", lambda event: get_app().layout.focus(self.input))
+
+        @kb.add("left", filter=settings_menu, eager=True)
+        def _(event: Any) -> None:
+            self.move_menu_selection("left")
+
+        @kb.add("right", filter=settings_menu, eager=True)
+        def _(event: Any) -> None:
+            self.move_menu_selection("right")
+
+        @kb.add("up", filter=settings_menu, eager=True)
+        def _(event: Any) -> None:
+            self.move_menu_selection("up")
+
+        @kb.add("down", filter=settings_menu, eager=True)
+        def _(event: Any) -> None:
+            self.move_menu_selection("down")
+
+        @kb.add("tab", filter=settings_menu, eager=True)
+        def _(event: Any) -> None:
+            self.move_menu_selection("right")
+
+        @kb.add("s-tab", filter=settings_menu, eager=True)
+        def _(event: Any) -> None:
+            self.move_menu_selection("left")
+
+        @kb.add("enter", filter=settings_menu, eager=True)
+        def _(event: Any) -> None:
+            self.activate_menu_selection()
 
         return kb
 
@@ -661,17 +900,23 @@ class FullScreenMathTUI:
             {
                 "": f"bg:{theme['background']} {theme['text']}",
                 "header": f"bg:{theme['panel_alt']} {theme['text']} bold",
-                "footer": f"bg:{theme['panel']} {theme['muted']}",
-                "output": f"bg:{theme['background']} {theme['text']}",
-                "input": f"bg:{theme['panel']} {theme['text']}",
-                "side": f"bg:{theme['panel']} {theme['muted']}",
-                "frame.border": f"{theme['border']}",
-                "frame.label": f"{theme['accent']} bold",
+                "footer": f"bg:{theme['background']} {theme['muted']}",
+                "toolbar": f"bg:{theme['panel']} {theme['text']}",
+                "panel.output": f"bg:{theme['panel']} {theme['text']}",
+                "panel.output.title": f"bg:{theme['panel']} {theme['accent']} bold",
+                "panel.side": f"bg:{theme['panel_alt']} {theme['text']}",
+                "panel.side.title": f"bg:{theme['panel_alt']} {theme['accent']} bold",
+                "panel.input": f"bg:{theme['button']} {theme['text']}",
+                "panel.input.title": f"bg:{theme['button']} {theme['accent_alt']} bold",
+                "output": f"bg:{theme['panel']} {theme['text']}",
+                "input": f"bg:{theme['button']} {theme['text']}",
+                "side": f"bg:{theme['panel_alt']} {theme['muted']}",
                 "button": f"bg:{theme['button']} {theme['text']}",
                 "button.focused": f"bg:{theme['button_focus']} {theme['text']} bold",
-                "text-area": f"bg:{theme['background']} {theme['text']}",
+                "button.selected": f"bg:{theme['button_focus']} {theme['text']} bold",
+                "text-area": f"bg:{theme['panel']} {theme['text']}",
                 "text-area.prompt": f"{theme['accent_alt']} bold",
-                "scrollbar.background": f"bg:{theme['panel']}",
+                "scrollbar.background": f"bg:{theme['panel_alt']}",
                 "scrollbar.button": f"bg:{theme['border']}",
             }
         )
@@ -680,6 +925,15 @@ class FullScreenMathTUI:
         self.output_lines.append(line)
         self.output.text = "\n".join(self.output_lines[-300:])
         self.output.buffer.cursor_position = len(self.output.text)
+
+    def _replace_theme_line(self) -> None:
+        replacement = f"Theme: {self.config.get('theme', DEFAULT_THEME_NAME)}  Config: {self.config.config_file}"
+        for index, line in enumerate(self.output_lines):
+            if line.startswith("Theme: "):
+                self.output_lines[index] = replacement
+                self.output.text = "\n".join(self.output_lines[-300:])
+                self.output.buffer.cursor_position = len(self.output.text)
+                return
 
     def _current_session_label(self) -> str:
         info = self.session_manager.get_current_session_info()
@@ -691,14 +945,19 @@ class FullScreenMathTUI:
         try:
             from prompt_toolkit.application import get_app
 
-            get_app().layout.focus(self.input)
+            if self.view == "settings":
+                get_app().layout.focus(self.output)
+            else:
+                get_app().layout.focus(self.input)
         except Exception:
             pass
 
-    def _refresh(self) -> None:
+    def _refresh(self, clear: bool = False) -> None:
         try:
             from prompt_toolkit.application import get_app
 
+            if clear:
+                get_app().renderer.clear()
             get_app().invalidate()
         except Exception:
             pass

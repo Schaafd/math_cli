@@ -26,11 +26,18 @@ def tui(tmp_path, monkeypatch):
 
 def test_tui_builds_layout_keybindings_and_style(tui):
     assert type(tui._build_layout()).__name__ == "HSplit"
+    assert type(tui._build_header()).__name__ == "HSplit"
+    assert type(tui._build_body()).__name__ == "VSplit"
+    assert type(tui._build_footer()).__name__ == "HSplit"
     assert type(tui._build_session_bar()).__name__ == "VSplit"
-    assert type(tui._build_side_panel()).__name__ == "Frame"
+    assert type(tui._build_side_panel()).__name__ == "HSplit"
     assert type(tui._create_key_bindings()).__name__ == "KeyBindings"
     assert tui._style() is not None
     assert tui.config.config_file.exists()
+
+    tui.set_view("settings")
+    assert type(tui._build_header()).__name__ == "Label"
+    assert type(tui._build_body()).__name__ == "HSplit"
 
 
 def test_tui_runs_commands_and_tracks_history(tui):
@@ -117,6 +124,34 @@ def test_tui_buttons_render_without_angle_brackets(tui):
     assert "add" in rendered
 
 
+def test_tui_keyboard_menu_navigation_and_activation(tui):
+    tui.set_view("settings")
+
+    assert tui.menu_focus == "tabs"
+    tui.move_menu_selection("right")
+    assert tui.settings_tabs[tui.settings_tab_index] == "layout"
+
+    tui.activate_menu_selection()
+    assert tui.settings_section == "layout"
+    assert tui.menu_focus == "items"
+
+    current_width = int(tui.config.get("side_panel_width"))
+    tui.activate_menu_selection()
+    assert tui.config.get("side_panel_width") == max(34, current_width - 4)
+
+    tui.move_menu_selection("up")
+    assert tui.menu_focus == "tabs"
+
+    tui.set_view("themes")
+    assert tui.menu_focus == "items"
+    assert tui.settings_section == "themes"
+    tui.move_menu_selection("right")
+    assert tui._menu_theme_names()[tui.theme_index] == "light-plus"
+
+    tui.activate_menu_selection()
+    assert tui.config.get("theme") == "light-plus"
+
+
 def test_tui_session_actions(tui):
     original = tui.session_manager.current_session_id
     tui.new_session()
@@ -169,6 +204,7 @@ def test_tui_settings_actions_update_config(tui):
     tui.apply_theme("tokyo-night")
     assert tui.config.get("theme") == "tokyo-night"
     assert "tokyo-night" in tui.status
+    assert "Theme: tokyo-night" in tui.output.text
 
     current_width = int(tui.config.get("side_panel_width"))
     tui.update_tui_setting("side_panel_width", current_width + 4)
