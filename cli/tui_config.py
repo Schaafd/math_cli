@@ -10,6 +10,7 @@ from typing import Any, Dict, List
 
 
 DEFAULT_TUI_CONFIG: Dict[str, Any] = {
+    "config_version": 2,
     "theme": "midnight",
     "show_footer": True,
     "session_tab_limit": 5,
@@ -18,18 +19,19 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
     "export_directory": "~",
     "quick_commands": ["add", "subtract", "multiply", "divide", "power"],
     "keybindings": {
-        "quit": "c-q",
-        "clear_screen": "c-l",
-        "new_session": "c-n",
-        "previous_session": "f2",
-        "next_session": "f3",
-        "focus_input": "f4",
-        "run": "f5",
-        "operations": "c-o",
-        "history": "f6",
-        "settings": "f7",
-        "bookmark": "c-b",
-        "export": "c-e",
+        "quit": "escape q",
+        "clear_screen": "escape l",
+        "new_session": "escape n",
+        "previous_session": "escape [",
+        "next_session": "escape ]",
+        "focus_input": "escape i",
+        "run": "escape enter",
+        "operations": "escape o",
+        "history": "escape h",
+        "settings": "escape s",
+        "themes": "escape t",
+        "bookmark": "escape b",
+        "export": "escape e",
         "clear_input": "escape c",
     },
     "themes": {
@@ -79,6 +81,23 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "button_focus": "#93c5fd",
         },
     },
+}
+
+
+LEGACY_KEYBINDINGS: Dict[str, str] = {
+    "quit": "c-q",
+    "clear_screen": "c-l",
+    "new_session": "c-n",
+    "previous_session": "f2",
+    "next_session": "f3",
+    "focus_input": "f4",
+    "run": "f5",
+    "operations": "c-o",
+    "history": "f6",
+    "settings": "f7",
+    "bookmark": "c-b",
+    "export": "c-e",
+    "clear_input": "escape c",
 }
 
 
@@ -136,7 +155,11 @@ class TUIConfig:
     def _load(self) -> Dict[str, Any]:
         with open(self.config_file, "r") as handle:
             user_config = json.load(handle)
-        return self._merge_config(DEFAULT_TUI_CONFIG, user_config)
+        migrated = self._migrate_config(user_config)
+        config = self._merge_config(DEFAULT_TUI_CONFIG, migrated)
+        if migrated != user_config:
+            self.save(config)
+        return config
 
     def _merge_config(self, defaults: Dict[str, Any], user_config: Dict[str, Any]) -> Dict[str, Any]:
         merged = deepcopy(defaults)
@@ -157,3 +180,17 @@ class TUIConfig:
             if key != "description":
                 merged[key] = str(value)
         return merged
+
+    def _migrate_config(self, user_config: Dict[str, Any]) -> Dict[str, Any]:
+        config = deepcopy(user_config)
+        if int(config.get("config_version", 1)) >= 2:
+            return config
+
+        configured_keys = config.setdefault("keybindings", {})
+        default_keys = DEFAULT_TUI_CONFIG["keybindings"]
+        for action, legacy_key in LEGACY_KEYBINDINGS.items():
+            if configured_keys.get(action) == legacy_key:
+                configured_keys[action] = default_keys[action]
+
+        config["config_version"] = 2
+        return config

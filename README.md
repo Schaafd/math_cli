@@ -183,15 +183,16 @@ commands, session tabs, view buttons, bookmark, and export actions are clickable
 
 Useful shortcuts:
 
-- `F5` - run input
-- `Ctrl+N` - new session
-- `F2` / `F3` - previous or next session
-- `Ctrl+O` - operations view
-- `F6` - history view
-- `F7` - settings view
-- `Ctrl+B` - bookmark latest result
-- `Ctrl+E` - export Markdown history
-- `Ctrl+Q` - exit
+- `Enter` - run input
+- `Esc` then `N` - new session
+- `Esc` then `[` / `Esc` then `]` - previous or next session
+- `Esc` then `O` - operations view
+- `Esc` then `H` - history view
+- `Esc` then `S` - settings view
+- `Esc` then `T` - themes view
+- `Esc` then `B` - bookmark latest result
+- `Esc` then `E` - export Markdown history
+- `Esc` then `Q` - exit
 
 The TUI creates an editable config file at:
 
@@ -207,8 +208,9 @@ active config path. Useful settings include:
   "theme": "midnight",
   "quick_commands": ["add", "subtract", "multiply", "divide", "power"],
   "keybindings": {
-    "history": "f6",
-    "settings": "f7"
+    "history": "escape h",
+    "settings": "escape s",
+    "themes": "escape t"
   },
   "side_panel_width": 44,
   "session_tab_limit": 5
@@ -216,8 +218,12 @@ active config path. Useful settings include:
 ```
 
 Themes live in the same file under `themes`. Add a new theme object, then set
-`theme` to that name. `Ctrl+H`, `backspace`, and `delete` are reserved for text
-editing and are ignored if assigned as global TUI shortcuts.
+`theme` to that name. You can also switch themes inside the TUI from
+Settings -> Themes or with `Esc` then `T`. Settings -> Layout lets you adjust
+panel width, session tab count, and footer visibility without leaving the TUI.
+Settings -> Shortcuts shows the active key map. `Ctrl+H`, `backspace`, and
+`delete` are reserved for text editing and are ignored if assigned as global TUI
+shortcuts.
 
 ## Available Operations
 

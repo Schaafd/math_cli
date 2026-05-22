@@ -73,19 +73,46 @@ def test_tui_views_and_side_panel_text(tui):
     assert "Settings" in tui._side_panel_text()
     assert "tui.json" in tui._side_panel_text()
 
+    tui.set_view("themes")
+    assert tui.view == "settings"
+    assert tui.settings_section == "themes"
+    assert "Themes" in tui._side_panel_text()
+
+    tui.set_settings_section("layout")
+    assert "side_panel_width" in tui._side_panel_text()
+
+    tui.set_settings_section("keys")
+    assert "Keyboard Shortcuts" in tui._side_panel_text()
+
 
 def test_tui_keybindings_do_not_steal_backspace(tui):
     key_bindings = tui._create_key_bindings()
-    bound_keys = {
+    bound_keys = [
         key.value if hasattr(key, "value") else str(key)
         for binding in key_bindings.bindings
         for key in binding.keys
-    }
+    ]
+    bound_sequences = [
+        tuple(key.value if hasattr(key, "value") else str(key) for key in binding.keys)
+        for binding in key_bindings.bindings
+    ]
 
     assert "c-h" not in bound_keys
     assert "backspace" not in bound_keys
     assert "delete" not in bound_keys
-    assert "f6" in bound_keys
+    assert not any(key.startswith("f") and key[1:].isdigit() for key in bound_keys)
+    assert ("escape", "h") in bound_sequences
+    assert ("escape", "t") in bound_sequences
+
+
+def test_tui_buttons_render_without_angle_brackets(tui):
+    button = tui.Button("add", width=8)
+    fragments = button._get_text_fragments()
+    rendered = "".join(fragment[1] for fragment in fragments if len(fragment) > 1)
+
+    assert "<" not in rendered
+    assert ">" not in rendered
+    assert "add" in rendered
 
 
 def test_tui_session_actions(tui):
@@ -134,6 +161,19 @@ def test_tui_clear_actions(tui):
     tui.run_command("add 1 1")
     tui.clear_current_session()
     assert tui.session_manager.get_current_commands() == []
+
+
+def test_tui_settings_actions_update_config(tui):
+    tui.apply_theme("paper")
+    assert tui.config.get("theme") == "paper"
+    assert "paper" in tui.status
+
+    current_width = int(tui.config.get("side_panel_width"))
+    tui.update_tui_setting("side_panel_width", current_width + 4)
+    assert tui.config.get("side_panel_width") == current_width + 4
+
+    tui.reload_config()
+    assert tui.config.get("theme") == "paper"
 
 
 def test_tui_current_session_label_without_session(tui):
