@@ -286,6 +286,7 @@ class FullScreenInteractiveApp:
         self.operation_index = 0
         self.history_index = 0
         self.session_index = 0
+        self.export_index = 0
         self.favorite_index = 0
         self.more_operation_index = 0
         self.more_operations_open = False
@@ -365,6 +366,17 @@ class FullScreenInteractiveApp:
         )
         self.sessions_window = Window(
             self.sessions_control,
+            height=Dimension(weight=1),
+            right_margins=[self._scrollbar_margin()],
+            style="class:side",
+            wrap_lines=False,
+        )
+        self.export_control = FormattedTextControl(
+            self._export_fragments,
+            focusable=True,
+        )
+        self.export_window = Window(
+            self.export_control,
             height=Dimension(weight=1),
             right_margins=[self._scrollbar_margin()],
             style="class:side",
@@ -1122,6 +1134,14 @@ class FullScreenInteractiveApp:
                 width=self._side_panel_dimension(),
             )
 
+        if self.view == "export":
+            return self._panel(
+                self.export_window,
+                "Export",
+                style=self._panel_style("panel.side"),
+                width=self._side_panel_dimension(),
+            )
+
         title = self.view.title()
         return self._panel(
             self.side_panel,
@@ -1672,6 +1692,14 @@ class FullScreenInteractiveApp:
                 self.session_index = (self.session_index + delta) % len(sessions)
                 self.status = f"Selected session {sessions[self.session_index]['name']}"
                 self._refresh()
+            return
+
+        if self.view == "export":
+            actions = self._export_actions()
+            delta = -1 if direction in {"up", "left"} else 1
+            self.export_index = (self.export_index + delta) % len(actions)
+            self.status = f"Selected export {actions[self.export_index][0]}"
+            self._refresh()
 
     def activate_panel_selection(self) -> None:
         if self.view == "operations":
@@ -1693,6 +1721,11 @@ class FullScreenInteractiveApp:
             sessions = self.session_manager.list_sessions()
             if sessions:
                 self.open_session(sessions[self.session_index]["id"])
+            return
+
+        if self.view == "export":
+            actions = self._export_actions()
+            actions[self.export_index][1]()
 
     def _operation_names_for_view(self) -> List[str]:
         grouped: Dict[str, List[str]] = {}
@@ -1995,17 +2028,53 @@ class FullScreenInteractiveApp:
         return "\n".join(lines)
 
     def _export_text(self) -> str:
-        return "\n".join(
+        return "".join(fragment[1] for fragment in self._export_fragments() if len(fragment) >= 2)
+
+    def _export_actions(self) -> List[tuple[str, Callable[[], None], str]]:
+        return [
+            ("Markdown", lambda: self.export_history("markdown"), "Readable .md history report"),
+            ("JSON", lambda: self.export_history("json"), "Structured .json data for tools"),
+            ("CSV", lambda: self.export_history("csv"), "Spreadsheet-friendly .csv table"),
+        ]
+
+    def _export_fragments(self) -> Any:
+        from prompt_toolkit.mouse_events import MouseEventType
+
+        actions = self._export_actions()
+        self.export_index = min(self.export_index, len(actions) - 1)
+        fragments: List[Any] = [
+            ("class:side", "Export\n\n"),
+            ("class:side", "Click a format or use arrows and Enter.\n"),
+            ("class:side", "Exports current TUI history to the configured directory.\n\n"),
+            ("class:side", f"Default directory: {self.config.get('export_directory', '~')}\n\n"),
+        ]
+
+        for index, (label, action, description) in enumerate(actions):
+            selected = index == self.export_index
+            row_text = self._fit_line(f" {label:<10} {description}", self._side_row_width())
+
+            def mouse_handler(mouse_event: Any, selected_index: int = index) -> None:
+                self.export_index = selected_index
+                self.focus_area = "panel"
+                self.status = f"Selected export {actions[selected_index][0]}"
+                self._focus_panel()
+                if mouse_event.event_type == MouseEventType.MOUSE_UP:
+                    actions[selected_index][1]()
+                self._refresh()
+
+            if selected:
+                fragments.append(("[SetCursorPosition]", ""))
+            fragments.append(("class:button.focused" if selected else "class:side", f"{row_text}\n", mouse_handler))
+
+        fragments.extend(
             [
-                "Export",
-                "",
-                "/export markdown [path]",
-                "/export json [path]",
-                "/export csv [path]",
-                "",
-                f"Default directory: {self.config.get('export_directory', '~')}",
+                ("class:side", "\nSlash commands still work:\n"),
+                ("class:side", "/export markdown [path]\n"),
+                ("class:side", "/export json [path]\n"),
+                ("class:side", "/export csv [path]\n"),
             ]
         )
+        return fragments
 
     def _settings_text(self) -> str:
         info = self.session_manager.get_current_session_info() or {}
@@ -2424,6 +2493,7 @@ class FullScreenInteractiveApp:
                 "operations": self.operations_window,
                 "history": self.history_window,
                 "sessions": self.sessions_window,
+                "export": self.export_window,
             }
             target = panel_targets.get(self.view, self.side_panel)
             get_app().layout.focus(target)

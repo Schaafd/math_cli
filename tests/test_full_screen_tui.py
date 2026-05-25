@@ -251,6 +251,11 @@ def test_tui_focus_cycle_and_panel_activation(tui):
     tui.activate_panel_selection()
     assert tui.input.text.startswith("add 2 3")
 
+    tui.set_view("export")
+    tui.focus_area = "panel"
+    tui.move_panel_selection("down")
+    assert "Selected export JSON" in tui.status
+
 
 def test_tui_settings_remains_full_width_with_command_bar(tui):
     tui.set_view("settings")
@@ -373,6 +378,29 @@ def test_tui_history_and_sessions_rows_are_clickable(tui):
 
     if original_session:
         tui.open_session(original_session)
+
+
+def test_tui_export_rows_are_clickable(tui, tmp_path, monkeypatch):
+    from prompt_toolkit.mouse_events import MouseEventType
+
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    tui.run_command("add 2 3")
+    tui.set_view("export")
+
+    class Event:
+        def __init__(self, event_type):
+            self.event_type = event_type
+
+    fragments = [fragment for fragment in tui._export_fragments() if len(fragment) == 3]
+    json_fragment = next(fragment for fragment in fragments if "JSON" in fragment[1])
+
+    json_fragment[2](Event(MouseEventType.MOUSE_DOWN))
+    assert tui.focus_area == "panel"
+    assert tui.export_index == 1
+
+    json_fragment[2](Event(MouseEventType.MOUSE_UP))
+    assert list(tmp_path.glob("math_cli_history_*.json"))
+    assert "Exported history" in tui.status
 
 
 def test_tui_side_panel_width_is_responsive(tui, monkeypatch):
@@ -606,6 +634,17 @@ def test_tui_bookmark_and_export(tui, tmp_path, monkeypatch):
     tui.export_markdown()
     assert "Exported history" in tui.status
     assert list(tmp_path.glob("math_cli_history_*.md"))
+
+    tui.set_view("export")
+    export_text = tui._export_text()
+    assert "Click a format" in export_text
+    assert "Markdown" in export_text
+    assert "JSON" in export_text
+    assert "CSV" in export_text
+
+    tui.export_index = 1
+    tui.activate_panel_selection()
+    assert list(tmp_path.glob("math_cli_history_*.json"))
 
 
 def test_tui_clear_actions(tui):
