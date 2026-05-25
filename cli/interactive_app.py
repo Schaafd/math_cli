@@ -136,6 +136,94 @@ class TUIButton:
         return self.window
 
 
+class ClickableScrollbarMargin:
+    """Scrollbar margin with clickable arrow cells."""
+
+    def __init__(
+        self,
+        display_arrows: bool = False,
+        up_arrow_symbol: str = "^",
+        down_arrow_symbol: str = "v",
+    ) -> None:
+        from prompt_toolkit.filters import to_filter
+
+        self.display_arrows = to_filter(display_arrows)
+        self.up_arrow_symbol = up_arrow_symbol
+        self.down_arrow_symbol = down_arrow_symbol
+
+    def get_width(self, get_ui_content: Callable[[], Any]) -> int:
+        return 1
+
+    def create_margin(self, window_render_info: Any, width: int, height: int) -> Any:
+        content_height = window_render_info.content_height
+        window_height = window_render_info.window_height
+        display_arrows = self.display_arrows()
+
+        if display_arrows:
+            window_height -= 2
+
+        try:
+            fraction_visible = len(window_render_info.displayed_lines) / float(content_height)
+            fraction_above = window_render_info.vertical_scroll / float(content_height)
+            scrollbar_height = int(min(window_height, max(1, window_height * fraction_visible)))
+            scrollbar_top = int(window_height * fraction_above)
+        except ZeroDivisionError:
+            return []
+
+        def is_scroll_button(row: int) -> bool:
+            return scrollbar_top <= row <= scrollbar_top + scrollbar_height
+
+        result: List[Any] = []
+        if display_arrows:
+            result.extend(
+                [
+                    ("class:scrollbar.arrow", self.up_arrow_symbol, self._mouse_handler(window_render_info.window, "up")),
+                    ("class:scrollbar", "\n"),
+                ]
+            )
+
+        scrollbar_background = "class:scrollbar.background"
+        scrollbar_background_start = "class:scrollbar.background,scrollbar.start"
+        scrollbar_button = "class:scrollbar.button"
+        scrollbar_button_end = "class:scrollbar.button,scrollbar.end"
+
+        for index in range(window_height):
+            if is_scroll_button(index):
+                if not is_scroll_button(index + 1):
+                    result.append((scrollbar_button_end, " "))
+                else:
+                    result.append((scrollbar_button, " "))
+            else:
+                if is_scroll_button(index + 1):
+                    result.append((scrollbar_background_start, " "))
+                else:
+                    result.append((scrollbar_background, " "))
+            result.append(("", "\n"))
+
+        if display_arrows:
+            result.append(("class:scrollbar.arrow", self.down_arrow_symbol, self._mouse_handler(window_render_info.window, "down")))
+
+        return result
+
+    def _mouse_handler(self, window: Any, direction: str) -> Callable[[Any], None]:
+        from prompt_toolkit.mouse_events import MouseEventType
+
+        def handler(mouse_event: Any) -> None:
+            if mouse_event.event_type != MouseEventType.MOUSE_DOWN:
+                return
+            scroll_method = getattr(window, "_scroll_up" if direction == "up" else "_scroll_down", None)
+            if callable(scroll_method):
+                scroll_method()
+            try:
+                from prompt_toolkit.application import get_app
+
+                get_app().invalidate()
+            except Exception:
+                pass
+
+        return handler
+
+
 def run_interactive_app(plugin_manager: Any, operations_metadata: Dict[str, Dict[str, Any]]) -> None:
     """Launch the canonical clickable full-screen interactive app."""
 
@@ -163,7 +251,6 @@ class FullScreenInteractiveApp:
         from prompt_toolkit.key_binding import KeyBindings
         from prompt_toolkit.layout.containers import Window
         from prompt_toolkit.layout.controls import FormattedTextControl
-        from prompt_toolkit.layout.margins import ScrollbarMargin
         from prompt_toolkit.widgets import Label, TextArea
 
         self.Button = TUIButton
@@ -211,12 +298,13 @@ class FullScreenInteractiveApp:
         self.output = TextArea(
             text="",
             read_only=True,
-            scrollbar=True,
+            scrollbar=False,
             focusable=True,
             height=Dimension(weight=1),
             wrap_lines=True,
             style="class:output",
         )
+        self.output.window.right_margins = [self._scrollbar_margin()]
         self.input = TextArea(
             height=Dimension(min=1, preferred=2, max=3),
             multiline=False,
@@ -241,13 +329,14 @@ class FullScreenInteractiveApp:
         self.side_panel = TextArea(
             text="",
             read_only=True,
-            scrollbar=True,
+            scrollbar=False,
             focusable=True,
             height=Dimension(weight=1),
             wrap_lines=True,
             focus_on_click=True,
             style="class:side",
         )
+        self.side_panel.window.right_margins = [self._scrollbar_margin()]
         self.operations_control = FormattedTextControl(
             self._operations_fragments,
             focusable=True,
@@ -255,7 +344,7 @@ class FullScreenInteractiveApp:
         self.operations_window = Window(
             self.operations_control,
             height=Dimension(weight=1),
-            right_margins=[ScrollbarMargin(display_arrows=True)],
+            right_margins=[self._scrollbar_margin()],
             style="class:side",
             wrap_lines=False,
         )
@@ -266,7 +355,7 @@ class FullScreenInteractiveApp:
         self.history_window = Window(
             self.history_control,
             height=Dimension(weight=1),
-            right_margins=[ScrollbarMargin(display_arrows=True)],
+            right_margins=[self._scrollbar_margin()],
             style="class:side",
             wrap_lines=False,
         )
@@ -277,7 +366,7 @@ class FullScreenInteractiveApp:
         self.sessions_window = Window(
             self.sessions_control,
             height=Dimension(weight=1),
-            right_margins=[ScrollbarMargin(display_arrows=True)],
+            right_margins=[self._scrollbar_margin()],
             style="class:side",
             wrap_lines=False,
         )
@@ -320,7 +409,7 @@ class FullScreenInteractiveApp:
         self.more_operations_window = Window(
             self.more_operations_control,
             height=Dimension(preferred=8, min=4, max=10),
-            right_margins=[ScrollbarMargin(display_arrows=True)],
+            right_margins=[self._scrollbar_margin()],
             style="class:more.popup",
             wrap_lines=False,
         )
@@ -1191,16 +1280,18 @@ class FullScreenInteractiveApp:
         from prompt_toolkit.layout.containers import Window
         from prompt_toolkit.layout.controls import FormattedTextControl
         from prompt_toolkit.layout.dimension import Dimension
-        from prompt_toolkit.layout.margins import ScrollbarMargin
 
         return Window(
             FormattedTextControl(text),
             width=width,
             height=Dimension(weight=1),
-            right_margins=[ScrollbarMargin(display_arrows=True)],
+            right_margins=[self._scrollbar_margin()],
             wrap_lines=True,
             style="class:side",
         )
+
+    def _scrollbar_margin(self) -> ClickableScrollbarMargin:
+        return ClickableScrollbarMargin(display_arrows=True)
 
     def _theme_buttons(self) -> Any:
         from prompt_toolkit.layout.containers import HSplit, VSplit, Window
@@ -2185,6 +2276,7 @@ class FullScreenInteractiveApp:
                 "text-area.prompt": f"{theme['input_prompt']} bold",
                 "scrollbar.background": f"bg:{theme['panel_alt']}",
                 "scrollbar.button": f"bg:{theme['border']}",
+                "scrollbar.arrow": f"bg:{theme['button']} {theme['accent']} bold",
             }
         )
 

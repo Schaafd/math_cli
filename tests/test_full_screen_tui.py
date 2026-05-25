@@ -1,9 +1,11 @@
 from pathlib import Path
+from types import SimpleNamespace
 import os
 
 import pytest
 
 import utils.sessions as sessions_module
+from cli.interactive_app import ClickableScrollbarMargin
 from cli.full_screen_tui import FullScreenMathTUI, run_full_screen_tui
 from core.plugin_manager import PluginManager
 from core.variables import get_variable_store
@@ -37,10 +39,54 @@ def test_tui_builds_layout_keybindings_and_style(tui):
     assert tui._style() is not None
     assert tui.config.config_file.exists()
     assert bool(tui.side_panel.control.focusable()) is True
+    assert isinstance(tui.output.window.right_margins[0], ClickableScrollbarMargin)
+    assert isinstance(tui.side_panel.window.right_margins[0], ClickableScrollbarMargin)
+    assert isinstance(tui.operations_window.right_margins[0], ClickableScrollbarMargin)
 
     tui.set_view("settings")
     assert type(tui._build_header()).__name__ == "Label"
     assert type(tui._build_body()).__name__ == "HSplit"
+
+
+def test_tui_scrollbar_arrows_are_clickable():
+    from prompt_toolkit.mouse_events import MouseEventType
+
+    class FakeWindow:
+        def __init__(self):
+            self.up = 0
+            self.down = 0
+
+        def _scroll_up(self):
+            self.up += 1
+
+        def _scroll_down(self):
+            self.down += 1
+
+    class Event:
+        def __init__(self, event_type):
+            self.event_type = event_type
+
+    window = FakeWindow()
+    margin = ClickableScrollbarMargin(display_arrows=True)
+    render_info = SimpleNamespace(
+        content_height=20,
+        window_height=6,
+        displayed_lines=[0, 1, 2, 3],
+        vertical_scroll=2,
+        window=window,
+    )
+
+    fragments = margin.create_margin(render_info, width=1, height=6)
+    clickable_fragments = [fragment for fragment in fragments if len(fragment) == 3]
+
+    assert clickable_fragments[0][1] == "^"
+    assert clickable_fragments[-1][1] == "v"
+
+    clickable_fragments[0][2](Event(MouseEventType.MOUSE_DOWN))
+    clickable_fragments[-1][2](Event(MouseEventType.MOUSE_DOWN))
+
+    assert window.up == 1
+    assert window.down == 1
 
 
 def test_tui_runs_commands_and_tracks_history(tui):
