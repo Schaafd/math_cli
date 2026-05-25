@@ -137,7 +137,7 @@ class TUIButton:
 
 
 class ClickableScrollbarMargin:
-    """Scrollbar margin with clickable arrow cells."""
+    """Scrollbar margin used as the visual model for clickable scrollbars."""
 
     def __init__(
         self,
@@ -209,7 +209,7 @@ class ClickableScrollbarMargin:
         from prompt_toolkit.mouse_events import MouseEventType
 
         def handler(mouse_event: Any) -> None:
-            if mouse_event.event_type != MouseEventType.MOUSE_DOWN:
+            if mouse_event.event_type not in {MouseEventType.MOUSE_DOWN, MouseEventType.MOUSE_UP}:
                 return
             scroll_method = getattr(window, "_scroll_up" if direction == "up" else "_scroll_down", None)
             if callable(scroll_method):
@@ -305,7 +305,6 @@ class FullScreenInteractiveApp:
             wrap_lines=True,
             style="class:output",
         )
-        self.output.window.right_margins = [self._scrollbar_margin()]
         self.input = TextArea(
             height=Dimension(min=1, preferred=2, max=3),
             multiline=False,
@@ -338,7 +337,6 @@ class FullScreenInteractiveApp:
             focus_on_click=True,
             style="class:side",
         )
-        self.side_panel.window.right_margins = [self._scrollbar_margin()]
         self.operations_control = FormattedTextControl(
             self._operations_fragments,
             focusable=True,
@@ -346,7 +344,6 @@ class FullScreenInteractiveApp:
         self.operations_window = Window(
             self.operations_control,
             height=Dimension(weight=1),
-            right_margins=[self._scrollbar_margin()],
             style="class:side",
             wrap_lines=False,
         )
@@ -357,7 +354,6 @@ class FullScreenInteractiveApp:
         self.history_window = Window(
             self.history_control,
             height=Dimension(weight=1),
-            right_margins=[self._scrollbar_margin()],
             style="class:side",
             wrap_lines=False,
         )
@@ -368,7 +364,6 @@ class FullScreenInteractiveApp:
         self.sessions_window = Window(
             self.sessions_control,
             height=Dimension(weight=1),
-            right_margins=[self._scrollbar_margin()],
             style="class:side",
             wrap_lines=False,
         )
@@ -379,7 +374,6 @@ class FullScreenInteractiveApp:
         self.export_window = Window(
             self.export_control,
             height=Dimension(weight=1),
-            right_margins=[self._scrollbar_margin()],
             style="class:side",
             wrap_lines=False,
         )
@@ -422,15 +416,11 @@ class FullScreenInteractiveApp:
         self.more_operations_window = Window(
             self.more_operations_control,
             height=Dimension(preferred=8, min=4, max=10),
-            right_margins=[self._scrollbar_margin()],
             style="class:more.popup",
             wrap_lines=False,
         )
 
-        self._append_output("MathCLI Interactive")
-        self._append_output(f"Theme: {self.config.get('theme', DEFAULT_THEME_NAME)}  Config: {self.config.config_file.name}")
-        self._append_output("Try: add 5 10 | radius = 12 | pi * radius ^ 2")
-        self._append_output("Slash: /help /operations /history /settings")
+        self._append_intro()
         self._update_panel_text()
 
     def run(self) -> None:
@@ -1002,7 +992,11 @@ class FullScreenInteractiveApp:
         gap = max(1, int(self.config.get("panel_gap", 1)))
         return VSplit(
             [
-                self._panel(self.output, "Calculation", style=self._panel_style("panel.output")),
+                self._panel(
+                    self._with_scrollbar(self.output, self.output.window, "transcript"),
+                    "Calculation",
+                    style=self._panel_style("panel.output"),
+                ),
                 Window(width=gap, char=" ", style="class:gutter"),
                 self._build_side_panel(),
             ],
@@ -1080,7 +1074,7 @@ class FullScreenInteractiveApp:
         bordered_body = VSplit(
             [
                 Window(width=1, char="|", style="class:more.border"),
-                self.more_operations_window,
+                self._with_scrollbar(self.more_operations_window, self.more_operations_window, "more"),
                 Window(width=1, char="|", style="class:more.border"),
             ],
             style="class:panel.more",
@@ -1158,7 +1152,7 @@ class FullScreenInteractiveApp:
 
         if self.view == "history":
             return self._panel(
-                self.history_window,
+                self._with_scrollbar(self.history_window, self.history_window, "panel"),
                 "History",
                 style=self._panel_style("panel.side"),
                 width=self._side_panel_dimension(),
@@ -1166,7 +1160,7 @@ class FullScreenInteractiveApp:
 
         if self.view == "sessions":
             return self._panel(
-                self.sessions_window,
+                self._with_scrollbar(self.sessions_window, self.sessions_window, "panel"),
                 "Sessions",
                 style=self._panel_style("panel.side"),
                 width=self._side_panel_dimension(),
@@ -1174,7 +1168,7 @@ class FullScreenInteractiveApp:
 
         if self.view == "export":
             return self._panel(
-                self.export_window,
+                self._with_scrollbar(self.export_window, self.export_window, "panel"),
                 "Export",
                 style=self._panel_style("panel.side"),
                 width=self._side_panel_dimension(),
@@ -1182,7 +1176,7 @@ class FullScreenInteractiveApp:
 
         title = self.view.title()
         return self._panel(
-            self.side_panel,
+            self._with_scrollbar(self.side_panel, self.side_panel.window, "panel"),
             title,
             style=self._panel_style("panel.side"),
             width=self._side_panel_dimension(),
@@ -1199,7 +1193,10 @@ class FullScreenInteractiveApp:
             height=4,
             style="class:side",
         )
-        return HSplit([header, self.operations_window], style="class:side")
+        return HSplit(
+            [header, self._with_scrollbar(self.operations_window, self.operations_window, "panel")],
+            style="class:side",
+        )
 
     def _build_operation_search_box(self) -> Any:
         from prompt_toolkit.layout.containers import HSplit, VSplit, Window
@@ -1317,7 +1314,7 @@ class FullScreenInteractiveApp:
         from prompt_toolkit.layout.containers import HSplit
         from prompt_toolkit.layout.dimension import Dimension
 
-        body = self.side_panel
+        body = self._with_scrollbar(self.side_panel, self.side_panel.window, "panel")
 
         children: List[Any] = [self.settings_tabs_window]
         if self.settings_section == "themes":
@@ -1343,13 +1340,97 @@ class FullScreenInteractiveApp:
             FormattedTextControl(text),
             width=width,
             height=Dimension(weight=1),
-            right_margins=[self._scrollbar_margin()],
             wrap_lines=True,
             style="class:side",
         )
 
     def _scrollbar_margin(self) -> ClickableScrollbarMargin:
         return ClickableScrollbarMargin(display_arrows=True)
+
+    def _with_scrollbar(self, content: Any, target_window: Any, focus_area: str) -> Any:
+        from prompt_toolkit.layout.containers import VSplit, Window
+        from prompt_toolkit.layout.controls import FormattedTextControl
+
+        return VSplit(
+            [
+                content,
+                Window(
+                    FormattedTextControl(lambda: self._scrollbar_fragments(target_window, focus_area)),
+                    width=1,
+                    style="class:scrollbar.background",
+                ),
+            ],
+            style="class:scrollbar.container",
+        )
+
+    def _scrollbar_fragments(self, target_window: Any, focus_area: str) -> Any:
+        render_info = getattr(target_window, "render_info", None)
+        if render_info is None:
+            return [("class:scrollbar.background", " ")]
+
+        content_height = max(1, int(getattr(render_info, "content_height", 1)))
+        window_height = max(1, int(getattr(render_info, "window_height", 1)))
+        body_height = max(0, window_height - 2)
+        vertical_scroll = max(0, int(getattr(render_info, "vertical_scroll", 0)))
+        visible_lines = getattr(render_info, "displayed_lines", []) or []
+        visible_count = max(1, len(visible_lines))
+
+        if body_height:
+            fraction_visible = min(1.0, visible_count / float(content_height))
+            thumb_height = max(1, min(body_height, int(body_height * fraction_visible)))
+            max_scroll = max(1, content_height - visible_count)
+            thumb_top = min(body_height - thumb_height, int((vertical_scroll / float(max_scroll)) * max(0, body_height - thumb_height)))
+        else:
+            thumb_height = 0
+            thumb_top = 0
+
+        fragments: List[Any] = [
+            ("class:scrollbar.arrow", "^", self._scrollbar_mouse_handler(target_window, focus_area, "up", amount=1)),
+            ("", "\n"),
+        ]
+        for row in range(body_height):
+            if thumb_top <= row < thumb_top + thumb_height:
+                fragments.append(("class:scrollbar.button", " "))
+            else:
+                direction = "up" if row < thumb_top else "down"
+                fragments.append(
+                    (
+                        "class:scrollbar.background",
+                        " ",
+                        self._scrollbar_mouse_handler(target_window, focus_area, direction, amount=max(1, visible_count - 1)),
+                    )
+                )
+            fragments.append(("", "\n"))
+        fragments.append(("class:scrollbar.arrow", "v", self._scrollbar_mouse_handler(target_window, focus_area, "down", amount=1)))
+        return fragments
+
+    def _scrollbar_mouse_handler(self, target_window: Any, focus_area: str, direction: str, amount: int = 1) -> Callable[[Any], None]:
+        from prompt_toolkit.mouse_events import MouseEventType
+
+        def handler(mouse_event: Any) -> None:
+            if mouse_event.event_type not in {MouseEventType.MOUSE_DOWN, MouseEventType.SCROLL_UP, MouseEventType.SCROLL_DOWN}:
+                return
+            if mouse_event.event_type == MouseEventType.SCROLL_UP:
+                scroll_direction = "up"
+            elif mouse_event.event_type == MouseEventType.SCROLL_DOWN:
+                scroll_direction = "down"
+            else:
+                scroll_direction = direction
+            self.focus_area = focus_area
+            for _ in range(max(1, amount)):
+                scroll_method = getattr(target_window, "_scroll_up" if scroll_direction == "up" else "_scroll_down", None)
+                if callable(scroll_method):
+                    scroll_method()
+            self.status = f"Scrolled {self._focus_label()}"
+            try:
+                from prompt_toolkit.application import get_app
+
+                get_app().layout.focus(target_window)
+                get_app().invalidate()
+            except Exception:
+                pass
+
+        return handler
 
     def _theme_buttons(self) -> Any:
         from prompt_toolkit.layout.containers import HSplit, VSplit, Window
@@ -2409,10 +2490,10 @@ class FullScreenInteractiveApp:
                 "nav.item": f"bg:{theme['nav']} {theme['text']}",
                 "nav.item.selected": f"bg:{theme['nav_selected']} {theme['text']} bold",
                 "nav.spacer": f"bg:{theme['nav']} {theme['muted']}",
-                "panel.output": f"bg:{theme['inactive_panel']} {theme['text']}",
+                "panel.output": f"bg:{theme['active_panel']} {theme['text']}",
                 "panel.output.focused": f"bg:{theme['active_panel']} {theme['text']}",
-                "panel.output.title": f"bg:{theme['inactive_panel']} {theme['accent']} bold",
-                "panel.output.focused.title": f"bg:{theme['active_panel']} {theme['accent']} bold",
+                "panel.output.title": f"bg:{theme['button_focus']} {theme['text']} bold",
+                "panel.output.focused.title": f"bg:{theme['button_focus']} {theme['text']} bold",
                 "panel.side": f"bg:{theme['inactive_panel']} {theme['text']}",
                 "panel.side.focused": f"bg:{theme['active_panel']} {theme['text']}",
                 "panel.side.title": f"bg:{theme['inactive_panel']} {theme['accent']} bold",
@@ -2435,7 +2516,7 @@ class FullScreenInteractiveApp:
                 "settings.tabs": f"bg:{theme['panel_alt']} {theme['text']}",
                 "settings.item": f"bg:{theme['panel_alt']} {theme['text']}",
                 "settings.item.selected": f"bg:{theme['button_focus']} {theme['text']} bold",
-                "output": f"bg:{theme['inactive_panel']} {theme['text']}",
+                "output": f"bg:{theme['active_panel']} {theme['text']}",
                 "input": f"bg:{theme['input_panel']} {theme['input_text']}",
                 "side": f"bg:{theme['inactive_panel']} {theme['muted']}",
                 "button": f"bg:{theme['button']} {theme['text']}",
@@ -2446,6 +2527,7 @@ class FullScreenInteractiveApp:
                 "scrollbar.background": f"bg:{theme['panel_alt']}",
                 "scrollbar.button": f"bg:{theme['border']}",
                 "scrollbar.arrow": f"bg:{theme['button']} {theme['accent']} bold",
+                "scrollbar.container": f"bg:{theme['panel_alt']}",
             }
         )
 
@@ -2454,10 +2536,26 @@ class FullScreenInteractiveApp:
         self.output.text = "\n".join(self.output_lines[-300:])
         self.output.buffer.cursor_position = len(self.output.text)
 
+    def _append_intro(self) -> None:
+        for line in self._intro_lines():
+            self._append_output(line)
+
+    def _intro_lines(self) -> List[str]:
+        theme_name = str(self.config.get("theme", DEFAULT_THEME_NAME))
+        config_name = self.config.config_file.name
+        return [
+            "MathCLI Interactive",
+            "+-- Quick Start ------------------------------------------------------------",
+            f"| Theme: {theme_name}    Config: {config_name}",
+            "| Try: add 5 10 | radius = 12 | pi * radius ^ 2",
+            "| Slash: /help /operations /history /settings",
+            "+-------------------------------------------------------------------------",
+        ]
+
     def _replace_theme_line(self) -> None:
-        replacement = f"Theme: {self.config.get('theme', DEFAULT_THEME_NAME)}  Config: {self.config.config_file.name}"
+        replacement = f"| Theme: {self.config.get('theme', DEFAULT_THEME_NAME)}    Config: {self.config.config_file.name}"
         for index, line in enumerate(self.output_lines):
-            if line.startswith("Theme: "):
+            if line.startswith("| Theme: ") or line.startswith("Theme: "):
                 self.output_lines[index] = replacement
                 self.output.text = "\n".join(self.output_lines[-300:])
                 self.output.buffer.cursor_position = len(self.output.text)
