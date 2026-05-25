@@ -331,6 +331,31 @@ def test_tui_input_help_tracks_current_operation_and_tab_completes(tui):
     assert "Export history" in slash_rendered
 
 
+def test_tui_slash_completion_panel_is_visible_and_clickable(tui):
+    from prompt_toolkit.mouse_events import MouseEventType
+
+    class Event:
+        def __init__(self, event_type):
+            self.event_type = event_type
+
+    tui.input.text = "/ex"
+    tui.input.buffer.cursor_position = len(tui.input.text)
+
+    assert tui._show_slash_completion_panel() is True
+    assert type(tui._build_command_bar()).__name__ == "HSplit"
+    assert tui._command_bar_height() >= 11
+
+    fragments = [fragment for fragment in tui._slash_completion_fragments() if len(fragment) == 3]
+    assert any("/export" in fragment[1] for fragment in fragments)
+    assert any("/exit" in fragment[1] for fragment in fragments)
+
+    export_fragment = next(fragment for fragment in fragments if "/export" in fragment[1])
+    export_fragment[2](Event(MouseEventType.MOUSE_UP))
+
+    assert tui.input.text == "/export"
+    assert "Completed /export" in tui.status
+
+
 def test_tui_slash_opens_completion_menu_immediately(tui, monkeypatch):
     calls = []
 

@@ -1020,6 +1020,10 @@ class FullScreenInteractiveApp:
             [
                 self.input,
                 ConditionalContainer(
+                    self._build_slash_completion_panel(),
+                    filter=Condition(self._show_slash_completion_panel),
+                ),
+                ConditionalContainer(
                     self.input_help_window,
                     filter=Condition(lambda: self.input_help_visible),
                 ),
@@ -1039,10 +1043,26 @@ class FullScreenInteractiveApp:
         return HSplit(children, height=self._command_bar_height(), style="class:footer")
 
     def _command_bar_height(self) -> int:
-        minimum_height = 7 if self.input_help_visible else 5
+        minimum_height = 5
+        if self._show_slash_completion_panel():
+            minimum_height += 6
+        if self.input_help_visible:
+            minimum_height += 2
         if not bool(self.config.get("show_shortcut_hints", True)):
             minimum_height -= 1
         return max(minimum_height, int(self.config.get("footer_height", minimum_height)))
+
+    def _build_slash_completion_panel(self) -> Any:
+        from prompt_toolkit.layout.containers import Window
+        from prompt_toolkit.layout.controls import FormattedTextControl
+        from prompt_toolkit.layout.dimension import Dimension
+
+        return Window(
+            FormattedTextControl(self._slash_completion_fragments),
+            height=Dimension(preferred=min(6, max(1, len(self._slash_completion_matches()))), min=1, max=6),
+            style="class:slash.completion",
+            wrap_lines=False,
+        )
 
     def _build_favorites_bar(self) -> Any:
         self.favorites_window.height = 1
@@ -1877,7 +1897,47 @@ class FullScreenInteractiveApp:
     def _operation_row_width(self) -> int:
         return max(24, min(72, int(self.config.get("side_panel_width", 44))) - 2)
 
+    def _show_slash_completion_panel(self) -> bool:
+        text = self.input.document.text_before_cursor.strip().lower()
+        return bool(
+            text.startswith("/")
+            and len(text.split()) == 1
+            and text not in SLASH_COMMANDS
+            and self._slash_completion_matches()
+        )
+
+    def _slash_completion_matches(self) -> List[tuple[str, str]]:
+        text = self.input.document.text_before_cursor.strip().lower()
+        if not text.startswith("/") or " " in text:
+            return []
+        return [(command, description) for command, description in SLASH_COMMANDS.items() if command.startswith(text)]
+
+    def _slash_completion_fragments(self) -> Any:
+        from prompt_toolkit.mouse_events import MouseEventType
+
+        fragments: List[Any] = []
+        matches = self._slash_completion_matches()
+        for index, (command, description) in enumerate(matches[:6]):
+            style = "class:slash.completion.selected" if index == 0 else "class:slash.completion"
+            text = self._fit_line(f" {command:<14} {description}", self._terminal_columns() - 4)
+
+            def mouse_handler(mouse_event: Any, selected_command: str = command) -> None:
+                if mouse_event.event_type in {MouseEventType.MOUSE_MOVE, MouseEventType.MOUSE_DOWN}:
+                    self.status = f"Selected {selected_command}"
+                    self._focus_input()
+                if mouse_event.event_type == MouseEventType.MOUSE_UP:
+                    self.input.text = selected_command
+                    self.input.buffer.cursor_position = len(self.input.text)
+                    self.status = f"Completed {selected_command}"
+                    self._focus_input()
+                    self._refresh(clear=True)
+
+            fragments.append((style, f"{text}\n", mouse_handler))
+        return fragments
+
     def _input_help_fragments(self) -> Any:
+        if self._show_slash_completion_panel():
+            return [("class:input.help", " Select a slash command with Tab or click a command above.\n")]
         slash_help = self._input_help_slash_command()
         if slash_help is not None:
             command, description = slash_help
@@ -2361,6 +2421,8 @@ class FullScreenInteractiveApp:
                 "panel.input.title": f"bg:{theme['input_panel']} {theme['input_prompt']} bold",
                 "input.help": f"bg:{theme['panel_alt']} {theme['muted']}",
                 "input.help.title": f"bg:{theme['panel_alt']} {theme['accent']} bold",
+                "slash.completion": f"bg:{theme['panel_alt']} {theme['text']}",
+                "slash.completion.selected": f"bg:{theme['button_focus']} {theme['text']} bold",
                 "search": f"bg:{theme['panel']} {theme['text']}",
                 "search.label": f"bg:{theme['inactive_panel']} {theme['accent']} bold",
                 "search.border": f"bg:{theme['inactive_panel']} {theme['accent']} bold",
