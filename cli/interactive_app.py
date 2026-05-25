@@ -283,7 +283,6 @@ class FullScreenInteractiveApp:
         )
         self.operation_search = TextArea(
             height=1,
-            width=Dimension(preferred=28, min=18, max=36),
             multiline=False,
             prompt="Search: ",
             focus_on_click=True,
