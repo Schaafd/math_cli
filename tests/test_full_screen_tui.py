@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 import pytest
 
@@ -23,6 +24,7 @@ def tui(tmp_path, monkeypatch):
 
 def test_tui_builds_layout_keybindings_and_style(tui):
     assert type(tui._build_layout()).__name__ == "HSplit"
+    assert type(tui._build_title()).__name__ == "HSplit"
     assert type(tui._build_header()).__name__ == "Label"
     assert type(tui._build_nav()).__name__ == "Window"
     assert type(tui._build_body()).__name__ == "VSplit"
@@ -208,9 +210,34 @@ def test_tui_nav_fragments_are_mouse_addressable(tui):
     fragments = tui._nav_fragments()
     labels = [fragment[1].strip() for fragment in fragments if len(fragment) >= 2]
 
-    assert "Operations" in labels
-    assert "Settings" in labels
+    assert any(label in {"Operations", "Ops"} for label in labels)
+    assert any(label in {"Settings", "Set"} for label in labels)
     assert any(len(fragment) == 3 for fragment in fragments)
+
+
+def test_tui_title_and_nav_are_responsive(tui, monkeypatch):
+    monkeypatch.setattr("shutil.get_terminal_size", lambda fallback=(120, 30): os.terminal_size((120, 30)))
+
+    assert any("__  __" in line for line in tui._title_lines(120))
+    nav_width = sum(len(fragment[1]) for fragment in tui._nav_fragments() if len(fragment) >= 2)
+    assert nav_width == 120
+
+    monkeypatch.setattr("shutil.get_terminal_size", lambda fallback=(80, 24): os.terminal_size((80, 24)))
+
+    assert tui._title_lines(80) == ["  Math CLI  |  Interactive Mathematical Operations"]
+    labels = [fragment[1].strip() for fragment in tui._nav_fragments() if len(fragment) >= 2]
+    assert "Ops" in labels
+    assert sum(len(fragment[1]) for fragment in tui._nav_fragments() if len(fragment) >= 2) == 80
+    assert len(tui._shortcut_help()) == 80
+    assert "esc q exit" in tui._shortcut_help()
+
+
+def test_tui_command_bar_uses_distinct_input_panel(tui):
+    command_bar = tui._build_command_bar()
+
+    assert type(command_bar).__name__ == "HSplit"
+    assert int(tui.config.get("footer_height")) >= 5
+    assert tui.theme["input_panel"] != tui.theme["inactive_panel"]
 
 
 def test_tui_session_actions(tui):

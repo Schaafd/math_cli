@@ -660,7 +660,9 @@ class FullScreenInteractiveApp:
     def _build_layout(self) -> Any:
         from prompt_toolkit.layout.containers import ConditionalContainer, DynamicContainer, HSplit
         from prompt_toolkit.filters import Condition
+        from prompt_toolkit.layout.containers import Window
 
+        title = DynamicContainer(self._build_title)
         header = DynamicContainer(self._build_header)
         nav = DynamicContainer(self._build_nav)
         workspace = DynamicContainer(self._build_workspace)
@@ -669,7 +671,35 @@ class FullScreenInteractiveApp:
             filter=Condition(lambda: bool(self.config.get("show_footer", True))),
         )
 
-        return HSplit([header, nav, workspace, command_bar], style="class:workspace")
+        return HSplit(
+            [
+                title,
+                header,
+                nav,
+                Window(height=1, char=" ", style="class:gutter"),
+                workspace,
+                command_bar,
+            ],
+            style="class:workspace",
+        )
+
+    def _build_title(self) -> Any:
+        from prompt_toolkit.layout.containers import HSplit, Window
+        from prompt_toolkit.layout.controls import FormattedTextControl
+
+        columns = self._terminal_columns()
+        lines = self._title_lines(columns)
+        return HSplit(
+            [
+                Window(
+                    FormattedTextControl([(self._title_line_style(index, len(lines)), self._fit_line(line, columns))]),
+                    height=1,
+                    style="class:title",
+                )
+                for index, line in enumerate(lines)
+            ],
+            style="class:title",
+        )
 
     def _build_header(self) -> Any:
         return self.Label(
@@ -688,11 +718,19 @@ class FullScreenInteractiveApp:
         from prompt_toolkit.mouse_events import MouseEventType
 
         fragments: List[Any] = []
+        columns = self._terminal_columns()
+        labels = self._nav_labels(columns)
+        tab_count = len(self.menu_items)
+        base_width = max(1, columns // max(1, tab_count))
+        remainder = columns % max(1, tab_count)
+        used_width = 0
         for index, view in enumerate(self.menu_items):
             selected = self.view == view or (view == "settings" and self.view == "settings")
             focused = self.focus_area == "nav" and self.menu_index == index
             style = "class:nav.item.selected" if selected or focused else "class:nav.item"
-            label = f" {view.title()} "
+            width = base_width + (1 if index < remainder else 0)
+            label = self._nav_tab_text(labels[view], width)
+            used_width += len(label)
 
             def mouse_handler(mouse_event: Any, selected_view: str = view, selected_index: int = index) -> None:
                 if mouse_event.event_type in {MouseEventType.MOUSE_MOVE, MouseEventType.MOUSE_DOWN}:
@@ -703,8 +741,8 @@ class FullScreenInteractiveApp:
                     self.set_view(selected_view)
 
             fragments.append((style, label, mouse_handler))
-            fragments.append(("class:nav.spacer", " "))
-        fragments.append(("class:nav", " "))
+        if used_width < columns:
+            fragments.append(("class:nav.spacer", " " * (columns - used_width)))
         return fragments
 
     def _build_workspace(self) -> Any:
@@ -716,7 +754,7 @@ class FullScreenInteractiveApp:
         gap = max(1, int(self.config.get("panel_gap", 1)))
         return VSplit(
             [
-                self._panel(self.output, "Transcript", style=self._panel_style("panel.output")),
+                self._panel(self.output, "Calculation", style=self._panel_style("panel.output")),
                 Window(width=gap, char=" ", style="class:gutter"),
                 self._build_side_panel(),
             ],
@@ -730,7 +768,7 @@ class FullScreenInteractiveApp:
         from prompt_toolkit.layout.containers import HSplit, VSplit, Window
         from prompt_toolkit.layout.dimension import Dimension
 
-        input_row = self.input
+        input_row = self._panel(self.input, "Input", style="class:panel.input")
         quick_row = VSplit(
             [
                 *[
@@ -743,10 +781,15 @@ class FullScreenInteractiveApp:
             style="class:footer",
         )
 
-        children: List[Any] = [input_row, quick_row]
+        children: List[Any] = [
+            Window(height=1, char=" ", style="class:gutter"),
+            input_row,
+            quick_row,
+        ]
         if bool(self.config.get("show_shortcut_hints", True)):
-            children.append(self.Label(lambda: f" {self._shortcut_help()}", style="class:footer.hint"))
-        return HSplit(children, height=max(1, int(self.config.get("footer_height", 3))), style="class:footer")
+            children.append(self.Label(self._shortcut_help, style="class:footer.hint"))
+        minimum_height = 5 if bool(self.config.get("show_shortcut_hints", True)) else 4
+        return HSplit(children, height=max(minimum_height, int(self.config.get("footer_height", minimum_height))), style="class:footer")
 
     def _build_footer(self) -> Any:
         return self._build_command_bar()
@@ -1479,6 +1522,8 @@ class FullScreenInteractiveApp:
         return Style.from_dict(
             {
                 "": f"bg:{theme['background']} {theme['text']}",
+                "title": f"bg:{theme['title_bg']} {theme['title_text']} bold",
+                "title.subtitle": f"bg:{theme['title_bg']} {theme['muted']}",
                 "header": f"bg:{theme['panel_alt']} {theme['text']} bold",
                 "footer": f"bg:{theme['background']} {theme['muted']}",
                 "footer.hint": f"bg:{theme['background']} {theme['muted']}",
@@ -1498,10 +1543,10 @@ class FullScreenInteractiveApp:
                 "panel.side.focused": f"bg:{theme['active_panel']} {theme['text']}",
                 "panel.side.title": f"bg:{theme['inactive_panel']} {theme['accent']} bold",
                 "panel.side.focused.title": f"bg:{theme['active_panel']} {theme['accent']} bold",
-                "panel.input": f"bg:{theme['button']} {theme['text']}",
-                "panel.input.title": f"bg:{theme['button']} {theme['accent_alt']} bold",
+                "panel.input": f"bg:{theme['input_panel']} {theme['input_text']}",
+                "panel.input.title": f"bg:{theme['input_panel']} {theme['input_prompt']} bold",
                 "output": f"bg:{theme['inactive_panel']} {theme['text']}",
-                "input": f"bg:{theme['button']} {theme['text']}",
+                "input": f"bg:{theme['input_panel']} {theme['input_text']}",
                 "side": f"bg:{theme['inactive_panel']} {theme['muted']}",
                 "button": f"bg:{theme['button']} {theme['text']}",
                 "button.focused": f"bg:{theme['button_focus']} {theme['text']} bold",
@@ -1531,10 +1576,67 @@ class FullScreenInteractiveApp:
         info = self.session_manager.get_current_session_info()
         if not info:
             return "No session"
-        return f"{info['name']} ({info['command_count']} commands)"
+        count = int(info["command_count"])
+        suffix = "cmd" if count == 1 else "cmds"
+        return f"{info['name']} ({count} {suffix})"
 
     def _header_text(self) -> str:
-        return f" MathCLI  |  {self._ellipsize(self._current_session_label(), 32)}  |  {self._ellipsize(self.status, 32)}"
+        columns = self._terminal_columns()
+        available = max(24, columns - len(" Session:   |  Status: "))
+        session_width = min(38, max(24, (available // 2) + 6))
+        status_width = max(12, available - session_width)
+        session = self._ellipsize(self._current_session_label(), session_width)
+        status = self._ellipsize(self.status, status_width)
+        return self._fit_line(f" Session: {session}  |  Status: {status}", columns)
+
+    def _terminal_columns(self) -> int:
+        import shutil
+
+        return max(40, shutil.get_terminal_size((120, 30)).columns)
+
+    def _fit_line(self, text: str, width: int) -> str:
+        if len(text) > width:
+            return self._ellipsize(text, width)
+        return text.ljust(width)
+
+    def _title_lines(self, columns: int) -> List[str]:
+        if columns < 96:
+            return ["  Math CLI  |  Interactive Mathematical Operations"]
+        return [
+            "     __  __       _   _        ____ _     ___",
+            "    |  \\/  | __ _| |_| |__    / ___| |   |_ _|",
+            "    | |\\/| |/ _` | __| '_ \\  | |   | |    | |",
+            "    | |  | | (_| | |_| | | | | |___| |___ | |",
+            "    |_|  |_|\\__,_|\\__|_| |_|  \\____|_____|___|",
+            "        Interactive Mathematical Operations",
+        ]
+
+    def _title_line_style(self, index: int, line_count: int) -> str:
+        if line_count > 1 and index == line_count - 1:
+            return "class:title.subtitle"
+        return "class:title"
+
+    def _nav_labels(self, columns: int) -> Dict[str, str]:
+        if columns < 84:
+            return {
+                "operations": "Ops",
+                "history": "Hist",
+                "sessions": "Sess",
+                "variables": "Vars",
+                "settings": "Set",
+                "help": "Help",
+                "export": "Export",
+            }
+        return {view: view.title() for view in self.menu_items}
+
+    def _nav_tab_text(self, label: str, width: int) -> str:
+        if width <= 0:
+            return ""
+        label_width = max(1, width - 2)
+        text = f" {self._ellipsize(label, label_width)} "
+        if len(text) > width:
+            return text[:width]
+        return text.center(width)
 
     def _ellipsize(self, text: str, max_length: int) -> str:
         if len(text) <= max_length:
@@ -1614,13 +1716,25 @@ class FullScreenInteractiveApp:
         self._refresh()
 
     def _shortcut_help(self) -> str:
-        return (
-            "tab focus  arrows move  enter select  "
-            f"{self.config.keybinding('focus_input')} input  "
-            f"{self.config.keybinding('operations')} ops  "
-            f"{self.config.keybinding('history')} history  "
-            f"{self.config.keybinding('quit')} exit"
-        )
+        columns = self._terminal_columns()
+        hints = [
+            "tab focus",
+            "arrows move",
+            "enter select",
+            f"{self._key_label('focus_input')} input",
+        ]
+        if columns >= 92:
+            hints.extend(
+                [
+                    f"{self._key_label('operations')} ops",
+                    f"{self._key_label('history')} history",
+                ]
+            )
+        hints.append(f"{self._key_label('quit')} exit")
+        return self._fit_line(f" {'  '.join(hints)}", columns)
+
+    def _key_label(self, action: str) -> str:
+        return self.config.keybinding(action).replace("escape", "esc")
 
 
 FullScreenMathTUI = FullScreenInteractiveApp
