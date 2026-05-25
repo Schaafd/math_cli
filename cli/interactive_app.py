@@ -494,17 +494,24 @@ class FullScreenInteractiveApp:
     def complete_input(self) -> None:
         from prompt_toolkit.completion import CompleteEvent
 
-        completions = list(
+        completion = None
+        if self.input.buffer.complete_state and self.input.buffer.complete_state.current_completion:
+            completion = self.input.buffer.complete_state.current_completion
+            self.input.buffer.complete_state = None
+
+        completions = [] if completion is not None else list(
             self.input.buffer.completer.get_completions(
                 self.input.document,
                 CompleteEvent(completion_requested=True),
             )
         ) if self.input.buffer.completer else []
         if not completions:
-            self.status = "No completion available"
-            self._refresh()
-            return
-        completion = completions[0]
+            if completion is None:
+                self.status = "No completion available"
+                self._refresh()
+                return
+        else:
+            completion = completions[0]
         self.input.buffer.delete_before_cursor(-completion.start_position)
         self.input.buffer.insert_text(completion.text, fire_event=False)
         self.status = f"Completed {completion.text}"
@@ -1860,6 +1867,13 @@ class FullScreenInteractiveApp:
         return max(24, min(72, int(self.config.get("side_panel_width", 44))) - 2)
 
     def _input_help_fragments(self) -> Any:
+        slash_help = self._input_help_slash_command()
+        if slash_help is not None:
+            command, description = slash_help
+            return [
+                ("class:input.help.title", f" {command}\n"),
+                ("class:input.help", f" {description}\n"),
+            ]
         operation = self._input_help_operation()
         if operation is None:
             return [
@@ -1872,6 +1886,19 @@ class FullScreenInteractiveApp:
             ("class:input.help.title", f" {usage}\n"),
             ("class:input.help", f" {help_text or 'No help text available.'}\n"),
         ]
+
+    def _input_help_slash_command(self) -> tuple[str, str] | None:
+        text = self.input.document.text_before_cursor.strip()
+        if not text.startswith("/"):
+            return None
+        command = text.split(maxsplit=1)[0].lower()
+        if command in SLASH_COMMANDS:
+            return command, SLASH_COMMANDS[command]
+        matches = [name for name in SLASH_COMMANDS if name.startswith(command)]
+        if len(matches) == 1:
+            match = matches[0]
+            return match, SLASH_COMMANDS[match]
+        return None
 
     def _input_help_operation(self) -> str | None:
         text = self.input.document.text_before_cursor.strip()

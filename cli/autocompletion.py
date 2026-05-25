@@ -1,6 +1,6 @@
 """Autocompletion engine for math_cli using prompt_toolkit."""
 
-from typing import Dict, List, Iterable
+from typing import Dict, Iterable, List
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.document import Document
 
@@ -21,6 +21,32 @@ class MathOperationCompleter(Completer):
         '/clear': 'Clear workspace',
         '/quit': 'Exit interactive mode',
         '/exit': 'Exit interactive mode',
+    }
+    slash_arguments = {
+        '/bookmark': {
+            'list': 'Show bookmarks',
+            'save': 'Save a history entry as a bookmark',
+            'get': 'Insert a saved bookmark',
+            'delete': 'Delete a bookmark',
+        },
+        '/export': {
+            'markdown': 'Export history as Markdown',
+            'json': 'Export history as JSON',
+            'csv': 'Export history as CSV',
+        },
+        '/history': {
+            'clear': 'Clear history',
+        },
+        '/session': {
+            'current': 'Show current session',
+            'new': 'Create a session',
+            'open': 'Open a session',
+            'next': 'Open next session',
+            'prev': 'Open previous session',
+            'rename': 'Rename current session',
+            'delete': 'Delete a session',
+            'clear': 'Clear current session',
+        },
     }
 
     def __init__(self, operations_metadata: Dict, session_manager=None):
@@ -49,17 +75,19 @@ class MathOperationCompleter(Completer):
         # Get the text before the cursor
         text_before_cursor = document.text_before_cursor
 
-        # Split into words
         words = text_before_cursor.split()
+        ends_with_space = bool(text_before_cursor and text_before_cursor[-1].isspace())
 
-        # If we're at the start or after whitespace, complete operation names
-        if not words or (text_before_cursor and text_before_cursor[-1].isspace()):
+        if not words:
             return
 
-        # Get the current word being typed
-        current_word = words[-1].lower()
+        current_word = "" if ends_with_space else words[-1].lower()
 
         # Slash commands are reserved for app/control actions.
+        if words[0].startswith('/'):
+            yield from self._slash_completions(words, current_word, ends_with_space)
+            return
+
         if len(words) == 1:
             if current_word.startswith('/'):
                 for cmd, help_text in self.app_commands.items():
@@ -91,27 +119,7 @@ class MathOperationCompleter(Completer):
                         display_meta=display_meta
                     )
 
-        # For subsequent words, check for session name completion
         else:
-            # Check if we're completing session names
-            if self.session_manager and len(words) >= 2:
-                first_word = words[0].lower()
-
-                # Complete session names for slash session actions.
-                if first_word == '/session' and len(words) >= 2 and words[1].lower() in ['open', 'delete']:
-
-                    # Get all session names
-                    session_names = self.session_manager.get_session_names()
-
-                    for session_name in session_names:
-                        if session_name.lower().startswith(current_word.lower()):
-                            yield Completion(
-                                session_name,
-                                start_position=-len(current_word),
-                                display=session_name,
-                                display_meta="session"
-                            )
-
             # Check if they're typing a new operation (for chain commands)
             for op_name in self.operation_names:
                 if op_name.lower().startswith(current_word):
@@ -129,6 +137,53 @@ class MathOperationCompleter(Completer):
                         display=op_name,
                         display_meta=display_meta
                     )
+
+    def _slash_completions(self, words: List[str], current_word: str, ends_with_space: bool) -> Iterable[Completion]:
+        command = words[0].lower()
+        token_index = len(words) if ends_with_space else len(words) - 1
+        start_position = -len(current_word)
+
+        if token_index == 0:
+            for cmd, help_text in self.app_commands.items():
+                if cmd.startswith(current_word):
+                    yield Completion(cmd, start_position=start_position, display=cmd, display_meta=help_text)
+            return
+
+        if token_index == 1:
+            for argument, help_text in self.slash_arguments.get(command, {}).items():
+                if argument.startswith(current_word):
+                    yield Completion(argument, start_position=start_position, display=argument, display_meta=help_text)
+            return
+
+        if command == '/session' and len(words) >= 2 and words[1].lower() in {'open', 'delete'}:
+            for session_name in self._session_names():
+                if session_name.lower().startswith(current_word.lower()):
+                    yield Completion(session_name, start_position=start_position, display=session_name, display_meta='session')
+            return
+
+        if command == '/bookmark' and len(words) >= 2 and words[1].lower() in {'get', 'delete'}:
+            for bookmark_name in self._bookmark_names():
+                if bookmark_name.lower().startswith(current_word.lower()):
+                    yield Completion(bookmark_name, start_position=start_position, display=bookmark_name, display_meta='bookmark')
+
+    def _session_names(self) -> List[str]:
+        if not self.session_manager:
+            return []
+        try:
+            return list(self.session_manager.get_session_names())
+        except Exception:
+            return []
+
+    def _bookmark_names(self) -> List[str]:
+        if not self.session_manager:
+            return []
+        try:
+            from utils.history import HistoryManager
+
+            history = HistoryManager(history_file=self.session_manager.config_dir / "history.json")
+            return sorted(history.list_bookmarks().keys())
+        except Exception:
+            return []
 
     def _get_special_command_help(self, command: str) -> str:
         """Get help text for special commands.

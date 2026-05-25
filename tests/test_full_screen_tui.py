@@ -318,6 +318,39 @@ def test_tui_input_help_tracks_current_operation_and_tab_completes(tui):
     assert "add" in rendered
     assert "Shift+Tab" not in rendered
 
+    tui.input.text = "/exp"
+    tui.input.buffer.cursor_position = len(tui.input.text)
+    tui.complete_input()
+
+    assert tui.input.text.startswith("/export")
+
+    slash_fragments = tui._input_help_fragments()
+    slash_rendered = "".join(fragment[1] for fragment in slash_fragments if len(fragment) >= 2)
+
+    assert "/export" in slash_rendered
+    assert "Export history" in slash_rendered
+
+
+def test_tui_slash_autocomplete_uses_selected_completion(tui):
+    from prompt_toolkit.buffer import CompletionState
+    from prompt_toolkit.completion import Completion
+    from prompt_toolkit.document import Document
+
+    tui.input.text = "/"
+    tui.input.buffer.cursor_position = len(tui.input.text)
+    tui.input.buffer.complete_state = CompletionState(
+        Document("/"),
+        completions=[
+            Completion("/help", start_position=-1),
+            Completion("/settings", start_position=-1),
+        ],
+        complete_index=1,
+    )
+
+    tui.complete_input()
+
+    assert tui.input.text == "/settings"
+
 
 def test_tui_operation_search_filters_available_functions(tui):
     tui.set_view("operations")
