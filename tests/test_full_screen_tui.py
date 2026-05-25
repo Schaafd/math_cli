@@ -150,6 +150,14 @@ def test_tui_keyboard_menu_navigation_and_activation(tui):
     tui.move_menu_selection("right")
     assert tui.settings_tabs[tui.settings_tab_index] == "themes"
 
+    tui.move_menu_selection("down")
+    assert tui.settings_section == "themes"
+    assert tui.menu_focus == "items"
+    assert tui.focus_area == "panel"
+
+    tui.move_menu_selection("up")
+    assert tui.menu_focus == "tabs"
+
     tui.activate_menu_selection()
     assert tui.settings_section == "themes"
     assert tui.menu_focus == "items"
@@ -381,6 +389,7 @@ def test_tui_settings_tabs_fill_width_and_are_mouse_addressable(tui, monkeypatch
 
     layout_fragment[2](Event(MouseEventType.MOUSE_UP))
     assert tui.settings_section == "layout"
+    assert tui.focus_area == "panel"
 
 
 def test_tui_operations_text_shows_selected_operation_marker(tui):

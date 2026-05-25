@@ -381,7 +381,7 @@ class FullScreenInteractiveApp:
             self.settings_tab_index = self.settings_tabs.index(section)
         self.menu_focus = "items" if section in {"themes", "layout"} else "tabs"
         self.status = f"Settings: {section}"
-        self._focus_input()
+        self._focus_panel()
         self._refresh(clear=True)
 
     def apply_theme(self, theme_name: str) -> None:
@@ -1335,10 +1335,13 @@ class FullScreenInteractiveApp:
             return
 
         if self.menu_focus == "tabs":
-            if direction in {"left", "up"}:
+            if direction == "left":
                 self.settings_tab_index = (self.settings_tab_index - 1) % len(self.settings_tabs)
-            elif direction in {"right", "down"}:
+            elif direction == "right":
                 self.settings_tab_index = (self.settings_tab_index + 1) % len(self.settings_tabs)
+            elif direction == "down":
+                self.set_settings_section(self.settings_tabs[self.settings_tab_index])
+                return
             self.status = f"Selected {self.settings_tabs[self.settings_tab_index]}"
             self._refresh()
             return
