@@ -1043,43 +1043,57 @@ class FullScreenInteractiveApp:
         )
 
     def _build_operations_browser(self) -> Any:
-        from prompt_toolkit.layout.containers import HSplit, VSplit, Window
-        from prompt_toolkit.layout.dimension import Dimension
+        from prompt_toolkit.layout.containers import HSplit
 
-        search_row = VSplit(
+        header = HSplit(
             [
                 self.Label(" Available Functions ", style="class:search.label"),
-                Window(width=Dimension(weight=1), char=" ", style="class:side"),
                 self._build_operation_search_box(),
-                Window(width=4, char=" ", style="class:side"),
             ],
-            height=3,
+            height=4,
             style="class:side",
         )
-        return HSplit([search_row, self.operations_window], style="class:side")
+        return HSplit([header, self.operations_window], style="class:side")
 
     def _build_operation_search_box(self) -> Any:
         from prompt_toolkit.layout.containers import HSplit, VSplit, Window
         from prompt_toolkit.layout.dimension import Dimension
 
-        box_width = Dimension(preferred=32, min=22, max=40)
+        horizontal_margin = 2
         return HSplit(
             [
-                Window(height=1, width=box_width, char="-", style="class:search.border"),
                 VSplit(
                     [
+                        Window(width=horizontal_margin, char=" ", style="class:side"),
+                        Window(height=1, char="-", style="class:search.border"),
+                        Window(width=horizontal_margin, char=" ", style="class:side"),
+                    ],
+                    height=1,
+                    style="class:side",
+                ),
+                VSplit(
+                    [
+                        Window(width=horizontal_margin, char=" ", style="class:side"),
                         Window(width=1, char="|", style="class:search.border"),
                         self.operation_search,
                         Window(width=1, char="|", style="class:search.border"),
+                        Window(width=horizontal_margin, char=" ", style="class:side"),
                     ],
                     height=1,
                     style="class:search",
                 ),
-                Window(height=1, width=box_width, char="-", style="class:search.border"),
+                VSplit(
+                    [
+                        Window(width=horizontal_margin, char=" ", style="class:side"),
+                        Window(height=1, char="-", style="class:search.border"),
+                        Window(width=horizontal_margin, char=" ", style="class:side"),
+                    ],
+                    height=1,
+                    style="class:side",
+                ),
             ],
-            width=box_width,
             height=3,
-            style="class:search.border",
+            style="class:side",
         )
 
     def _side_panel_dimension(self) -> Any:
