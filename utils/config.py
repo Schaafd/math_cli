@@ -20,6 +20,7 @@ class ConfigManager:
             "theme": "default",
             "colors_enabled": True,
             "animations_enabled": True,
+            "special_number_animations_enabled": False,
             "show_tips": True,
             "show_toolbar": True,
             "history_limit": 1000,

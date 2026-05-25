@@ -18,6 +18,19 @@ from utils.visual import (
     preferences
 )
 
+SPECIAL_NUMBER_ANIMATIONS_CONFIG_KEY = "special_number_animations_enabled"
+
+
+def should_show_special_number_animations() -> bool:
+    """Return whether interactive mode should show special-number/easter-egg panels."""
+    try:
+        from utils.config import get_config
+
+        return bool(get_config().get(SPECIAL_NUMBER_ANIMATIONS_CONFIG_KEY, False))
+    except Exception:
+        return False
+
+
 # Phase 2: Interactive features
 try:
     from prompt_toolkit import PromptSession
@@ -1054,16 +1067,17 @@ def run_interactive_mode(plugin_manager, operations_metadata: Dict, enable_color
 
                     animation_controller = AnimationController(console, enable_animations)
 
-                    # Check for easter eggs first (takes priority)
-                    easter_egg_shown = animation_controller.check_and_show_easter_egg(result)
+                    if should_show_special_number_animations():
+                        # Check for easter eggs first (takes priority)
+                        easter_egg_shown = animation_controller.check_and_show_easter_egg(result)
 
-                    # Check for special numbers (if no easter egg)
-                    if not easter_egg_shown:
-                        special_detector = get_special_number_detector()
-                        special_info = special_detector.check_number(result)
-                        if special_info:
-                            name, emoji = special_info
-                            animation_controller.show_special_number(name, emoji, result)
+                        # Check for special numbers (if no easter egg)
+                        if not easter_egg_shown:
+                            special_detector = get_special_number_detector()
+                            special_info = special_detector.check_number(result)
+                            if special_info:
+                                name, emoji = special_info
+                                animation_controller.show_special_number(name, emoji, result)
 
                     # Check for calculation milestones
                     milestone_detector = get_milestone_detector()

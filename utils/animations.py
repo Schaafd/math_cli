@@ -215,14 +215,6 @@ class AnimationController:
             padding=(0, 2)
         )
 
-        # Blink effect
-        for _ in range(2):
-            self.console.print(panel)
-            time.sleep(0.3)
-            # Move cursor up to overwrite
-            self.console.print("\033[F" * 3, end="")
-            time.sleep(0.2)
-
         self.console.print(panel)
         self.console.print()
 
