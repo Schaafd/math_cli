@@ -331,6 +331,27 @@ def test_tui_input_help_tracks_current_operation_and_tab_completes(tui):
     assert "Export history" in slash_rendered
 
 
+def test_tui_slash_opens_completion_menu_immediately(tui, monkeypatch):
+    calls = []
+
+    def fake_start_completion(*, select_first=False, **kwargs):
+        calls.append(select_first)
+
+    monkeypatch.setattr(tui.input.buffer, "start_completion", fake_start_completion)
+
+    tui.input.text = "/"
+    tui.input.buffer.cursor_position = 1
+    tui._input_text_changed(tui.input.buffer)
+
+    assert calls == [False]
+
+    tui.input.text = "add /"
+    tui.input.buffer.cursor_position = len(tui.input.text)
+    tui._input_text_changed(tui.input.buffer)
+
+    assert calls == [False]
+
+
 def test_tui_slash_autocomplete_uses_selected_completion(tui):
     from prompt_toolkit.buffer import CompletionState
     from prompt_toolkit.completion import Completion

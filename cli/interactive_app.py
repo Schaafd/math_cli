@@ -317,6 +317,7 @@ class FullScreenInteractiveApp:
             wrap_lines=True,
             style="class:input",
         )
+        self.input.buffer.on_text_changed += self._input_text_changed
         self.input_help_control = FormattedTextControl(
             self._input_help_fragments,
             focusable=False,
@@ -516,6 +517,16 @@ class FullScreenInteractiveApp:
         self.input.buffer.insert_text(completion.text, fire_event=False)
         self.status = f"Completed {completion.text}"
         self._refresh()
+
+    def _input_text_changed(self, _: Any) -> None:
+        if self.input.text != "/" or self.input.buffer.cursor_position != 1:
+            return
+        if self.input.buffer.complete_state:
+            return
+        try:
+            self.input.buffer.start_completion(select_first=False)
+        except RuntimeError:
+            pass
 
     def toggle_input_help(self) -> None:
         self.input_help_visible = not self.input_help_visible
