@@ -23,3 +23,15 @@ def test_autocomplete_suggests_math_operations_without_slash_commands():
     assert "add" in texts
     assert "/help" not in texts
     assert "history" not in texts
+
+
+def test_autocomplete_hides_private_operations():
+    completer = MathOperationCompleter(
+        {
+            "add": {"args": ["a", "b"], "help": "Add values"},
+            "_call_user_function": {"args": [], "help": "internal"},
+        }
+    )
+    completions = list(completer.get_completions(Document("_"), None))
+
+    assert completions == []

@@ -247,6 +247,85 @@ def test_tui_command_bar_uses_distinct_input_panel(tui):
     assert int(tui.config.get("footer_height")) >= 5
     assert tui.theme["input_panel"] != tui.theme["inactive_panel"]
 
+    tui.toggle_input_help()
+    assert tui.input_help_visible is True
+    assert tui._command_bar_height() >= 7
+    assert type(tui._build_command_bar()).__name__ == "HSplit"
+
+
+def test_tui_input_help_tracks_current_operation_and_tab_completes(tui):
+    tui.input.text = "ad"
+    tui.input.buffer.cursor_position = len(tui.input.text)
+    tui.complete_input()
+
+    assert tui.input.text.startswith("add")
+    assert "Completed add" in tui.status
+
+    fragments = tui._input_help_fragments()
+    rendered = "".join(fragment[1] for fragment in fragments if len(fragment) >= 2)
+
+    assert "add" in rendered
+    assert "Shift+Tab" not in rendered
+
+
+def test_tui_operation_search_filters_available_functions(tui):
+    tui.set_view("operations")
+    tui.operation_search.text = "deriv"
+
+    assert tui.operation_query == "deriv"
+    assert tui.operation_index == 0
+    assert "derivative" in tui._operation_names_for_view()
+    assert "add" not in tui._operation_names_for_view()
+    assert "Operations matching 'deriv'" in tui._operations_text()
+
+
+def test_tui_operations_rows_are_clickable(tui):
+    from prompt_toolkit.mouse_events import MouseEventType
+
+    class Event:
+        def __init__(self, event_type):
+            self.event_type = event_type
+
+    tui.set_view("operations")
+    names = tui._operation_names_for_view()
+    target = "multiply" if "multiply" in names else names[0]
+    tui.operation_index = names.index(target)
+    fragments = [fragment for fragment in tui._operations_fragments() if len(fragment) == 3]
+    target_fragment = next(fragment for fragment in fragments if fragment[1].strip().split()[0] == target)
+
+    target_fragment[2](Event(MouseEventType.MOUSE_DOWN))
+    assert tui.focus_area == "panel"
+    assert tui._selected_operation_name() == target
+
+    target_fragment[2](Event(MouseEventType.MOUSE_UP))
+    assert tui.input.text.startswith(target)
+
+
+def test_tui_history_and_sessions_rows_are_clickable(tui):
+    from prompt_toolkit.mouse_events import MouseEventType
+
+    class Event:
+        def __init__(self, event_type):
+            self.event_type = event_type
+
+    tui.run_command("add 2 3")
+    tui.set_view("history")
+    history_fragments = [fragment for fragment in tui._history_fragments() if len(fragment) == 3]
+
+    history_fragments[0][2](Event(MouseEventType.MOUSE_UP))
+    assert tui.input.text.startswith("add 2 3")
+
+    original_session = tui.session_manager.current_session_id
+    tui.new_session()
+    tui.set_view("sessions")
+    session_fragments = [fragment for fragment in tui._sessions_fragments() if len(fragment) == 3]
+
+    session_fragments[0][2](Event(MouseEventType.MOUSE_DOWN))
+    assert tui.focus_area == "panel"
+
+    if original_session:
+        tui.open_session(original_session)
+
 
 def test_tui_side_panel_width_is_responsive(tui, monkeypatch):
     monkeypatch.setattr("shutil.get_terminal_size", lambda fallback=(120, 30): os.terminal_size((70, 24)))

@@ -31,7 +31,7 @@ class MathOperationCompleter(Completer):
             session_manager: Optional SessionManager for session name completion
         """
         self.operations_metadata = operations_metadata
-        self.operation_names = sorted(operations_metadata.keys())
+        self.operation_names = sorted(name for name in operations_metadata if not name.startswith("_"))
         self.session_manager = session_manager
 
         self.special_commands = sorted(self.app_commands.keys())

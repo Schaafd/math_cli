@@ -202,6 +202,7 @@ class FullScreenInteractiveApp:
         self.favorite_index = 0
         self.more_operation_index = 0
         self.more_operations_open = False
+        self.input_help_visible = False
         self.focus_area = "input"
         self.focus_cycle = self._configured_focus_cycle()
         self.status = "Ready"
@@ -217,14 +218,25 @@ class FullScreenInteractiveApp:
             style="class:output",
         )
         self.input = TextArea(
-            height=1,
+            height=Dimension(min=1, preferred=2, max=3),
             multiline=False,
             prompt="> ",
             completer=MathOperationCompleter(operations_metadata, self.session_manager),
-            complete_while_typing=False,
+            complete_while_typing=True,
             accept_handler=lambda _: self.submit_input(),
             focus_on_click=True,
+            wrap_lines=True,
             style="class:input",
+        )
+        self.input_help_control = FormattedTextControl(
+            self._input_help_fragments,
+            focusable=False,
+        )
+        self.input_help_window = Window(
+            self.input_help_control,
+            height=2,
+            style="class:input.help",
+            wrap_lines=True,
         )
         self.side_panel = TextArea(
             text="",
@@ -247,6 +259,37 @@ class FullScreenInteractiveApp:
             style="class:side",
             wrap_lines=False,
         )
+        self.history_control = FormattedTextControl(
+            self._history_fragments,
+            focusable=True,
+        )
+        self.history_window = Window(
+            self.history_control,
+            height=Dimension(weight=1),
+            right_margins=[ScrollbarMargin(display_arrows=True)],
+            style="class:side",
+            wrap_lines=False,
+        )
+        self.sessions_control = FormattedTextControl(
+            self._sessions_fragments,
+            focusable=True,
+        )
+        self.sessions_window = Window(
+            self.sessions_control,
+            height=Dimension(weight=1),
+            right_margins=[ScrollbarMargin(display_arrows=True)],
+            style="class:side",
+            wrap_lines=False,
+        )
+        self.operation_search = TextArea(
+            height=1,
+            multiline=False,
+            prompt="Search: ",
+            focus_on_click=True,
+            wrap_lines=False,
+            style="class:search",
+        )
+        self.operation_search.buffer.on_text_changed += self._operation_search_changed
         self.settings_tabs_control = FormattedTextControl(
             self._settings_tab_fragments,
             focusable=True,
@@ -347,6 +390,30 @@ class FullScreenInteractiveApp:
         self.input.buffer.cursor_position = len(self.input.text)
         self._focus_input()
 
+    def complete_input(self) -> None:
+        from prompt_toolkit.completion import CompleteEvent
+
+        completions = list(
+            self.input.buffer.completer.get_completions(
+                self.input.document,
+                CompleteEvent(completion_requested=True),
+            )
+        ) if self.input.buffer.completer else []
+        if not completions:
+            self.status = "No completion available"
+            self._refresh()
+            return
+        completion = completions[0]
+        self.input.buffer.delete_before_cursor(-completion.start_position)
+        self.input.buffer.insert_text(completion.text, fire_event=False)
+        self.status = f"Completed {completion.text}"
+        self._refresh()
+
+    def toggle_input_help(self) -> None:
+        self.input_help_visible = not self.input_help_visible
+        self.status = "Input help shown" if self.input_help_visible else "Input help hidden"
+        self._refresh(clear=True)
+
     def set_view(self, view: str) -> None:
         self.view = view
         if view == "themes":
@@ -362,6 +429,7 @@ class FullScreenInteractiveApp:
             self.menu_focus = "tabs"
         elif view == "operations":
             self.operation_query = ""
+            self._sync_operation_search()
         if view in self.menu_items:
             self.menu_index = self.menu_items.index(view)
         self.status = f"Showing {view}"
@@ -567,6 +635,7 @@ class FullScreenInteractiveApp:
         self.view = "operations"
         self.menu_index = self.menu_items.index("operations")
         self.operation_query = " ".join(args).strip().lower()
+        self._sync_operation_search()
         self.operation_index = 0
         self.status = f"Operations matching {self.operation_query}" if self.operation_query else "Showing operations"
 
@@ -825,9 +894,20 @@ class FullScreenInteractiveApp:
         return self._build_workspace()
 
     def _build_command_bar(self) -> Any:
-        from prompt_toolkit.layout.containers import HSplit, Window
+        from prompt_toolkit.filters import Condition
+        from prompt_toolkit.layout.containers import ConditionalContainer, HSplit, Window
 
-        input_row = self._panel(self.input, "Input", style="class:panel.input")
+        input_content = HSplit(
+            [
+                self.input,
+                ConditionalContainer(
+                    self.input_help_window,
+                    filter=Condition(lambda: self.input_help_visible),
+                ),
+            ],
+            style="class:panel.input",
+        )
+        input_row = self._panel(input_content, "Input", style="class:panel.input")
         favorites_row = self._build_favorites_bar()
 
         children: List[Any] = [
@@ -840,7 +920,7 @@ class FullScreenInteractiveApp:
         return HSplit(children, height=self._command_bar_height(), style="class:footer")
 
     def _command_bar_height(self) -> int:
-        minimum_height = 5
+        minimum_height = 7 if self.input_help_visible else 5
         if not bool(self.config.get("show_shortcut_hints", True)):
             minimum_height -= 1
         return max(minimum_height, int(self.config.get("footer_height", minimum_height)))
@@ -931,8 +1011,24 @@ class FullScreenInteractiveApp:
 
         if self.view == "operations":
             return self._panel(
-                self.operations_window,
+                self._build_operations_browser(),
                 "Operations",
+                style=self._panel_style("panel.side"),
+                width=self._side_panel_dimension(),
+            )
+
+        if self.view == "history":
+            return self._panel(
+                self.history_window,
+                "History",
+                style=self._panel_style("panel.side"),
+                width=self._side_panel_dimension(),
+            )
+
+        if self.view == "sessions":
+            return self._panel(
+                self.sessions_window,
+                "Sessions",
                 style=self._panel_style("panel.side"),
                 width=self._side_panel_dimension(),
             )
@@ -944,6 +1040,21 @@ class FullScreenInteractiveApp:
             style=self._panel_style("panel.side"),
             width=self._side_panel_dimension(),
         )
+
+    def _build_operations_browser(self) -> Any:
+        from prompt_toolkit.layout.containers import HSplit, VSplit, Window
+        from prompt_toolkit.layout.dimension import Dimension
+
+        search_row = VSplit(
+            [
+                self.Label(" Available Functions ", style="class:search.label"),
+                Window(width=Dimension(weight=1), char=" ", style="class:side"),
+                self.operation_search,
+            ],
+            height=1,
+            style="class:side",
+        )
+        return HSplit([search_row, self.operations_window], style="class:side")
 
     def _side_panel_dimension(self) -> Any:
         import shutil
@@ -1473,6 +1584,23 @@ class FullScreenInteractiveApp:
             names.extend(sorted(grouped[category]))
         return names
 
+    def _operation_search_changed(self, _: Any) -> None:
+        if not hasattr(self, "operation_search"):
+            return
+        query = self.operation_search.text.strip().lower()
+        if query == self.operation_query:
+            return
+        self.operation_query = query
+        self.operation_index = 0
+        self.status = f"Operations matching {query}" if query else "Showing operations"
+        self._refresh()
+
+    def _sync_operation_search(self) -> None:
+        if not hasattr(self, "operation_search"):
+            return
+        if self.operation_search.text != self.operation_query:
+            self.operation_search.text = self.operation_query
+
     def _selected_operation_name(self) -> str | None:
         names = self._operation_names_for_view()
         if not names:
@@ -1507,7 +1635,7 @@ class FullScreenInteractiveApp:
         fragments.extend(
             [
                 ("class:side", f"{title}\n\n"),
-                ("class:side", "Arrows move. Enter inserts. g toggles grouping.\n"),
+                ("class:side", "Search above, click a row, or use arrows. Enter inserts. g toggles grouping.\n"),
                 ("class:side", f"Grouping: {grouping.title()}    Selected: {selected_name or 'none'}\n\n"),
             ]
         )
@@ -1535,15 +1663,30 @@ class FullScreenInteractiveApp:
         return fragments
 
     def _operation_row_fragments(self, name: str, selected_name: str | None) -> List[Any]:
+        from prompt_toolkit.mouse_events import MouseEventType
+
         usage = " ".join(f"<{arg}>" for arg in self.operations_metadata[name].get("args", []))
         row_text = f" {name} {usage}".rstrip()
         row_text = self._fit_line(row_text, self._operation_row_width())
+
+        def mouse_handler(mouse_event: Any, selected_name: str = name) -> None:
+            names = self._operation_names_for_view()
+            if selected_name in names:
+                self.operation_index = names.index(selected_name)
+            self.focus_area = "panel"
+            self.status = f"Selected operation {selected_name}"
+            self._focus_panel()
+            if mouse_event.event_type == MouseEventType.MOUSE_UP:
+                self.insert_command(selected_name)
+                self.status = f"Inserted {selected_name}"
+            self._refresh()
+
         if name != selected_name:
-            return [("class:side", f"{row_text}\n")]
+            return [("class:side", f"{row_text}\n", mouse_handler)]
 
         fragments: List[Any] = [
             ("[SetCursorPosition]", ""),
-            ("class:button.focused", f"{row_text}\n"),
+            ("class:button.focused", f"{row_text}\n", mouse_handler),
         ]
         help_text = self.operations_metadata[name].get("help", "")
         if help_text:
@@ -1553,30 +1696,127 @@ class FullScreenInteractiveApp:
     def _operation_row_width(self) -> int:
         return max(24, min(72, int(self.config.get("side_panel_width", 44))) - 2)
 
+    def _input_help_fragments(self) -> Any:
+        operation = self._input_help_operation()
+        if operation is None:
+            return [
+                ("class:input.help", " Type an operation name for inline help. Examples: add 2 3 | derivative x**2 x\n"),
+                ("class:input.help", " Tab completes suggestions. Shift+Tab hides this help.\n"),
+            ]
+        usage = self._operation_usage(operation)
+        help_text = str(self.operations_metadata[operation].get("help", ""))
+        return [
+            ("class:input.help.title", f" {usage}\n"),
+            ("class:input.help", f" {help_text or 'No help text available.'}\n"),
+        ]
+
+    def _input_help_operation(self) -> str | None:
+        text = self.input.document.text_before_cursor.strip()
+        if not text:
+            return None
+        tokens = text.replace("|", " ").split()
+        if not tokens:
+            return None
+        candidates = [tokens[-1], tokens[0]]
+        for token in candidates:
+            if token in self.operations_metadata and not token.startswith("_"):
+                return token
+        current = tokens[-1].lower()
+        matches = [
+            name
+            for name in self.operations_metadata
+            if not name.startswith("_") and name.lower().startswith(current)
+        ]
+        return matches[0] if len(matches) == 1 else None
+
+    def _operation_usage(self, operation: str) -> str:
+        metadata = self.operations_metadata[operation]
+        args = " ".join(f"<{arg}>" for arg in metadata.get("args", []))
+        if metadata.get("variadic", False):
+            args = f"{args} ..." if args else "..."
+        return f"{operation} {args}".rstrip()
+
     def _history_text(self) -> str:
+        return "".join(fragment[1] for fragment in self._history_fragments() if len(fragment) >= 2)
+
+    def _history_fragments(self) -> Any:
+        from prompt_toolkit.mouse_events import MouseEventType
+
         entries = self.history.get_all_entries()
         if not entries:
-            return "No history in this TUI session yet."
+            return [("class:side", "No history in this TUI session yet.")]
         self.history_index = min(self.history_index, len(entries) - 1)
-        lines = ["History", "", "Enter inserts the selected command. /history clear clears history.", ""]
-        for index, entry in enumerate(entries[:30], start=1):
-            marker = ">" if index - 1 == self.history_index else " "
-            lines.append(f"{marker} {index}. {entry['command']}")
-            lines.append(f"   = {entry['result']}")
-        return "\n".join(lines)
+        fragments: List[Any] = [
+            ("class:side", "History\n\n"),
+            ("class:side", "Click a row or press Enter to insert. /history clear clears history.\n\n"),
+        ]
+        for index, entry in enumerate(entries[:30]):
+            selected = index == self.history_index
+            command = str(entry["command"])
+            result = str(entry["result"])
+            row_text = self._fit_line(f" {index + 1}. {command}", self._side_row_width())
+            result_text = self._fit_line(f"    = {result}", self._side_row_width())
+
+            def mouse_handler(mouse_event: Any, selected_index: int = index) -> None:
+                self.history_index = selected_index
+                self.focus_area = "panel"
+                self.status = f"Selected history entry {selected_index + 1}"
+                self._focus_panel()
+                if mouse_event.event_type == MouseEventType.MOUSE_UP:
+                    entry = self.history.get_entry(selected_index)
+                    if entry:
+                        self.insert_command(str(entry["command"]))
+                        self.status = f"Inserted history entry {selected_index + 1}"
+                self._refresh()
+
+            style = "class:button.focused" if selected else "class:side"
+            if selected:
+                fragments.append(("[SetCursorPosition]", ""))
+            fragments.append((style, f"{row_text}\n", mouse_handler))
+            fragments.append(("class:side", f"{result_text}\n"))
+        return fragments
 
     def _sessions_text(self) -> str:
+        return "".join(fragment[1] for fragment in self._sessions_fragments() if len(fragment) >= 2)
+
+    def _sessions_fragments(self) -> Any:
+        from prompt_toolkit.mouse_events import MouseEventType
+
         sessions = self.session_manager.list_sessions()
         if not sessions:
-            return "No saved sessions yet.\n\nUse /session new <name> to create one."
+            return [("class:side", "No saved sessions yet.\n\nUse /session new <name> to create one.")]
         self.session_index = min(self.session_index, len(sessions) - 1)
-        lines = ["Sessions", "", "Use /session new, /session open, /session next, /session prev, /session rename, or /session delete.", ""]
+        fragments: List[Any] = [
+            ("class:side", "Sessions\n\n"),
+            ("class:side", "Click a session or press Enter to open it.\n\n"),
+        ]
         for index, session in enumerate(sessions):
             active_marker = "*" if session["is_active"] else " "
-            selected_marker = ">" if index == self.session_index else " "
-            lines.append(f"{selected_marker}{active_marker} {session['name']}  ({session['command_count']} commands)")
-            lines.append(f"   id: {session['id']}")
-        return "\n".join(lines)
+            selected = index == self.session_index
+            row_text = self._fit_line(
+                f" {active_marker} {session['name']}  ({session['command_count']} commands)",
+                self._side_row_width(),
+            )
+            id_text = self._fit_line(f"   id: {session['id']}", self._side_row_width())
+
+            def mouse_handler(mouse_event: Any, selected_index: int = index) -> None:
+                self.session_index = selected_index
+                self.focus_area = "panel"
+                self.status = f"Selected session {sessions[selected_index]['name']}"
+                self._focus_panel()
+                if mouse_event.event_type == MouseEventType.MOUSE_UP:
+                    self.open_session(sessions[selected_index]["id"])
+                self._refresh()
+
+            style = "class:button.focused" if selected else "class:side"
+            if selected:
+                fragments.append(("[SetCursorPosition]", ""))
+            fragments.append((style, f"{row_text}\n", mouse_handler))
+            fragments.append(("class:side", f"{id_text}\n"))
+        return fragments
+
+    def _side_row_width(self) -> int:
+        return max(24, min(72, int(self.config.get("side_panel_width", 44))) - 2)
 
     def _variables_text(self) -> str:
         from core.variables import get_variable_store
@@ -1739,6 +1979,8 @@ class FullScreenInteractiveApp:
 
         kb = KeyBindings()
         settings_menu = Condition(lambda: self.view == "settings" and self.focus_area == "panel")
+        input_focus = Condition(lambda: self.focus_area == "input")
+        non_input_focus = Condition(lambda: self.focus_area != "input")
         nav_focus = Condition(lambda: self.focus_area == "nav")
         panel_focus = Condition(lambda: self.focus_area == "panel")
         more_focus = Condition(lambda: self.more_operations_open and self.focus_area == "more")
@@ -1758,13 +2000,17 @@ class FullScreenInteractiveApp:
         self._bind(kb, "clear_input", lambda event: self._clear_input())
         self._bind(kb, "focus_input", lambda event: self._focus_input())
 
-        @kb.add("tab", eager=True)
+        @kb.add("tab", filter=input_focus, eager=True)
+        def _(event: Any) -> None:
+            self.complete_input()
+
+        @kb.add("tab", filter=non_input_focus, eager=True)
         def _(event: Any) -> None:
             self.focus_next_area()
 
         @kb.add("s-tab", eager=True)
         def _(event: Any) -> None:
-            self.focus_next_area(reverse=True)
+            self.toggle_input_help()
 
         @kb.add("left", filter=nav_focus, eager=True)
         def _(event: Any) -> None:
@@ -1876,6 +2122,10 @@ class FullScreenInteractiveApp:
                 "panel.side.focused.title": f"bg:{theme['active_panel']} {theme['accent']} bold",
                 "panel.input": f"bg:{theme['input_panel']} {theme['input_text']}",
                 "panel.input.title": f"bg:{theme['input_panel']} {theme['input_prompt']} bold",
+                "input.help": f"bg:{theme['panel_alt']} {theme['muted']}",
+                "input.help.title": f"bg:{theme['panel_alt']} {theme['accent']} bold",
+                "search": f"bg:{theme['panel']} {theme['text']}",
+                "search.label": f"bg:{theme['inactive_panel']} {theme['accent']} bold",
                 "panel.more": f"bg:{theme['active_panel']} {theme['text']}",
                 "panel.more.title": f"bg:{theme['active_panel']} {theme['accent']} bold",
                 "more.border": f"bg:{theme['active_panel']} {theme['accent']} bold",
@@ -2038,7 +2288,12 @@ class FullScreenInteractiveApp:
         try:
             from prompt_toolkit.application import get_app
 
-            target = self.operations_window if self.view == "operations" else self.side_panel
+            panel_targets = {
+                "operations": self.operations_window,
+                "history": self.history_window,
+                "sessions": self.sessions_window,
+            }
+            target = panel_targets.get(self.view, self.side_panel)
             get_app().layout.focus(target)
         except Exception:
             pass
@@ -2098,9 +2353,11 @@ class FullScreenInteractiveApp:
     def _shortcut_help(self) -> str:
         columns = self._terminal_columns()
         hints = [
-            "tab focus",
-            "arrows move",
+            "tab complete",
+            "shift-tab help",
+            "arrows",
             "enter select",
+            f"{self._key_label('quit')} exit",
             f"{self._key_label('focus_input')} input",
         ]
         if columns >= 92:
@@ -2110,7 +2367,6 @@ class FullScreenInteractiveApp:
                     f"{self._key_label('history')} history",
                 ]
             )
-        hints.append(f"{self._key_label('quit')} exit")
         return self._fit_line(f" {'  '.join(hints)}", columns)
 
     def _key_label(self, action: str) -> str:
