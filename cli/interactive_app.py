@@ -1552,7 +1552,7 @@ class FullScreenInteractiveApp:
                 "button.focused": f"bg:{theme['button_focus']} {theme['text']} bold",
                 "button.selected": f"bg:{theme['button_focus']} {theme['text']} bold",
                 "text-area": f"bg:{theme['panel']} {theme['text']}",
-                "text-area.prompt": f"{theme['accent_alt']} bold",
+                "text-area.prompt": f"{theme['input_prompt']} bold",
                 "scrollbar.background": f"bg:{theme['panel_alt']}",
                 "scrollbar.button": f"bg:{theme['border']}",
             }

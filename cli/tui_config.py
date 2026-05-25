@@ -13,7 +13,7 @@ DEFAULT_THEME_NAME = "dark-plus"
 
 
 DEFAULT_TUI_CONFIG: Dict[str, Any] = {
-    "config_version": 6,
+    "config_version": 7,
     "theme": DEFAULT_THEME_NAME,
     "show_footer": True,
     "panel_gap": 1,
@@ -66,11 +66,11 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "inactive_panel": "#252526",
             "nav": "#252526",
             "nav_selected": "#094771",
-            "title_bg": "#111111",
-            "title_text": "#4ec9b0",
-            "input_panel": "#111827",
+            "title_bg": "#252526",
+            "title_text": "#569cd6",
+            "input_panel": "#2d2d30",
             "input_text": "#d4d4d4",
-            "input_prompt": "#4ec9b0",
+            "input_prompt": "#569cd6",
         },
         "light-plus": {
             "description": "VS Code Light+ inspired clean light theme.",
@@ -94,9 +94,9 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "nav_selected": "#cce8ff",
             "title_bg": "#f3f3f3",
             "title_text": "#0451a5",
-            "input_panel": "#e8f3ff",
+            "input_panel": "#e8e8e8",
             "input_text": "#1f1f1f",
-            "input_prompt": "#008000",
+            "input_prompt": "#0451a5",
         },
         "monokai": {
             "description": "Monokai-inspired high-energy dark theme.",
@@ -118,9 +118,9 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "inactive_panel": "#2d2e27",
             "nav": "#2d2e27",
             "nav_selected": "#49483e",
-            "title_bg": "#1f201b",
-            "title_text": "#a6e22e",
-            "input_panel": "#1f201b",
+            "title_bg": "#2d2e27",
+            "title_text": "#66d9ef",
+            "input_panel": "#3e3d32",
             "input_text": "#f8f8f2",
             "input_prompt": "#66d9ef",
         },
@@ -144,11 +144,11 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "inactive_panel": "#073642",
             "nav": "#073642",
             "nav_selected": "#586e75",
-            "title_bg": "#00212b",
-            "title_text": "#2aa198",
-            "input_panel": "#00212b",
+            "title_bg": "#073642",
+            "title_text": "#268bd2",
+            "input_panel": "#0b3a45",
             "input_text": "#839496",
-            "input_prompt": "#2aa198",
+            "input_prompt": "#268bd2",
         },
         "solarized-light": {
             "description": "Solarized Light inspired low-glare theme.",
@@ -174,7 +174,7 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "title_text": "#268bd2",
             "input_panel": "#e6dec6",
             "input_text": "#586e75",
-            "input_prompt": "#2aa198",
+            "input_prompt": "#268bd2",
         },
         "dracula": {
             "description": "Dracula-inspired purple dark theme.",
@@ -196,11 +196,11 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "inactive_panel": "#343746",
             "nav": "#343746",
             "nav_selected": "#6272a4",
-            "title_bg": "#1f212b",
-            "title_text": "#50fa7b",
-            "input_panel": "#1f212b",
+            "title_bg": "#343746",
+            "title_text": "#bd93f9",
+            "input_panel": "#44475a",
             "input_text": "#f8f8f2",
-            "input_prompt": "#50fa7b",
+            "input_prompt": "#bd93f9",
         },
         "github-dark": {
             "description": "GitHub Dark inspired muted dark theme.",
@@ -222,11 +222,11 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "inactive_panel": "#161b22",
             "nav": "#161b22",
             "nav_selected": "#1f6feb",
-            "title_bg": "#010409",
-            "title_text": "#3fb950",
-            "input_panel": "#010409",
+            "title_bg": "#161b22",
+            "title_text": "#58a6ff",
+            "input_panel": "#21262d",
             "input_text": "#c9d1d9",
-            "input_prompt": "#3fb950",
+            "input_prompt": "#58a6ff",
         },
         "one-dark-pro": {
             "description": "One Dark Pro inspired balanced dark theme.",
@@ -248,11 +248,11 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "inactive_panel": "#2f343d",
             "nav": "#2f343d",
             "nav_selected": "#528bff",
-            "title_bg": "#21252b",
-            "title_text": "#98c379",
-            "input_panel": "#21252b",
+            "title_bg": "#2f343d",
+            "title_text": "#61afef",
+            "input_panel": "#353b45",
             "input_text": "#abb2bf",
-            "input_prompt": "#98c379",
+            "input_prompt": "#61afef",
         },
         "nord": {
             "description": "Nord-inspired cool arctic theme.",
@@ -274,11 +274,11 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "inactive_panel": "#3b4252",
             "nav": "#3b4252",
             "nav_selected": "#5e81ac",
-            "title_bg": "#242933",
-            "title_text": "#a3be8c",
-            "input_panel": "#242933",
+            "title_bg": "#3b4252",
+            "title_text": "#88c0d0",
+            "input_panel": "#434c5e",
             "input_text": "#eceff4",
-            "input_prompt": "#a3be8c",
+            "input_prompt": "#88c0d0",
         },
         "tokyo-night": {
             "description": "Tokyo Night inspired deep blue theme.",
@@ -300,11 +300,11 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "inactive_panel": "#24283b",
             "nav": "#24283b",
             "nav_selected": "#3d59a1",
-            "title_bg": "#101014",
-            "title_text": "#9ece6a",
-            "input_panel": "#101014",
+            "title_bg": "#24283b",
+            "title_text": "#7aa2f7",
+            "input_panel": "#292e42",
             "input_text": "#c0caf5",
-            "input_prompt": "#9ece6a",
+            "input_prompt": "#7aa2f7",
         },
     },
 }
@@ -459,6 +459,20 @@ class TUIConfig:
 
         if config_version < 6:
             config.setdefault("footer_height", DEFAULT_TUI_CONFIG["footer_height"])
+
+        if config_version < 7:
+            configured_themes = config.setdefault("themes", {})
+            for theme_name in VS_CODE_THEME_NAMES:
+                theme = configured_themes.setdefault(theme_name, {})
+                default_theme = DEFAULT_TUI_CONFIG["themes"][theme_name]
+                for color_key in (
+                    "title_bg",
+                    "title_text",
+                    "input_panel",
+                    "input_text",
+                    "input_prompt",
+                ):
+                    theme[color_key] = default_theme[color_key]
 
         config["config_version"] = int(DEFAULT_TUI_CONFIG["config_version"])
         return config
