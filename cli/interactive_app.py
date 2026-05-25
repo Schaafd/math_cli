@@ -236,6 +236,17 @@ class FullScreenInteractiveApp:
             focus_on_click=True,
             style="class:side",
         )
+        self.operations_control = FormattedTextControl(
+            self._operations_fragments,
+            focusable=True,
+        )
+        self.operations_window = Window(
+            self.operations_control,
+            height=Dimension(weight=1),
+            right_margins=[ScrollbarMargin(display_arrows=True)],
+            style="class:side",
+            wrap_lines=False,
+        )
         self.nav_control = FormattedTextControl(
             self._nav_fragments,
             focusable=True,
@@ -866,6 +877,14 @@ class FullScreenInteractiveApp:
         if self.view == "settings":
             return self._build_settings_panel()
 
+        if self.view == "operations":
+            return self._panel(
+                self.operations_window,
+                "Operations",
+                style=self._panel_style("panel.side"),
+                width=self._side_panel_dimension(),
+            )
+
         title = self.view.title()
         return self._panel(
             self.side_panel,
@@ -1115,6 +1134,18 @@ class FullScreenInteractiveApp:
     def _layout_selected(self, index: int) -> bool:
         return self.view == "settings" and self.settings_section == "layout" and self.menu_focus == "items" and self.layout_index == index
 
+    def _operations_grouping(self) -> str:
+        grouping = str(self.config.get("operations_grouping", "category")).lower()
+        return grouping if grouping in {"category", "alphabetical"} else "category"
+
+    def toggle_operations_grouping(self) -> None:
+        grouping = "alphabetical" if self._operations_grouping() == "category" else "category"
+        self.config.config["operations_grouping"] = grouping
+        self.config.save()
+        self.operation_index = 0
+        self.status = f"Operations grouping: {grouping}"
+        self._refresh(clear=True)
+
     def _favorite_commands_for_width(self, columns: int | None = None) -> List[str]:
         columns = columns or self._terminal_columns()
         common = [
@@ -1362,7 +1393,8 @@ class FullScreenInteractiveApp:
                 self.open_session(sessions[self.session_index]["id"])
 
     def _operation_names_for_view(self) -> List[str]:
-        names = []
+        grouped: Dict[str, List[str]] = {}
+        alphabetical_names: List[str] = []
         for name, metadata in sorted(self.operations_metadata.items()):
             if name.startswith("_"):
                 continue
@@ -1370,7 +1402,14 @@ class FullScreenInteractiveApp:
                 haystack = f"{name} {metadata.get('help', '')} {metadata.get('category', '')}".lower()
                 if self.operation_query not in haystack:
                     continue
-            names.append(name)
+            alphabetical_names.append(name)
+            category = str(metadata.get("category") or "Other").title()
+            grouped.setdefault(category, []).append(name)
+        if self._operations_grouping() == "alphabetical":
+            return alphabetical_names
+        names: List[str] = []
+        for category in sorted(grouped):
+            names.extend(sorted(grouped[category]))
         return names
 
     def _selected_operation_name(self) -> str | None:
@@ -1394,40 +1433,64 @@ class FullScreenInteractiveApp:
         return index
 
     def _operations_text(self) -> str:
-        grouped: Dict[str, List[str]] = {}
+        return "".join(fragment[1] for fragment in self._operations_fragments() if len(fragment) >= 2)
+
+    def _operations_fragments(self) -> Any:
+        fragments: List[Any] = []
         operation_names = self._operation_names_for_view()
         selected_name = self._selected_operation_name()
-        for name in operation_names:
-            metadata = self.operations_metadata[name]
-            category = metadata.get("category") or "Other"
-            grouped.setdefault(str(category).title(), []).append(name)
-
         title = "Operations"
         if self.operation_query:
             title = f"Operations matching '{self.operation_query}'"
-        lines = [
-            title,
-            "",
-            "Use arrows to move. Enter inserts the selected operation.",
-            f"Selected: {selected_name or 'none'}",
-            "",
+        grouping = self._operations_grouping()
+        fragments.extend(
+            [
+                ("class:side", f"{title}\n\n"),
+                ("class:side", "Arrows move. Enter inserts. g toggles grouping.\n"),
+                ("class:side", f"Grouping: {grouping.title()}    Selected: {selected_name or 'none'}\n\n"),
+            ]
+        )
+        if not operation_names:
+            fragments.append(("class:side", "No matching operations."))
+            return fragments
+
+        if grouping == "alphabetical":
+            fragments.append(("class:side", "Alphabetical\n"))
+            fragments.append(("class:side", "------------\n"))
+            for name in operation_names:
+                fragments.extend(self._operation_row_fragments(name, selected_name))
+            return fragments
+
+        current_category: str | None = None
+        for name in operation_names:
+            category = str(self.operations_metadata[name].get("category") or "Other").title()
+            if category != current_category:
+                if current_category is not None:
+                    fragments.append(("class:side", "\n"))
+                current_category = category
+                fragments.append(("class:side", f"{category}\n"))
+                fragments.append(("class:side", f"{'-' * len(category)}\n"))
+            fragments.extend(self._operation_row_fragments(name, selected_name))
+        return fragments
+
+    def _operation_row_fragments(self, name: str, selected_name: str | None) -> List[Any]:
+        usage = " ".join(f"<{arg}>" for arg in self.operations_metadata[name].get("args", []))
+        row_text = f" {name} {usage}".rstrip()
+        row_text = self._fit_line(row_text, self._operation_row_width())
+        if name != selected_name:
+            return [("class:side", f"{row_text}\n")]
+
+        fragments: List[Any] = [
+            ("[SetCursorPosition]", ""),
+            ("class:button.focused", f"{row_text}\n"),
         ]
-        if not grouped:
-            lines.append("No matching operations.")
-            return "\n".join(lines)
-        for category, names in sorted(grouped.items()):
-            lines.append(category)
-            lines.append("-" * len(category))
-            for name in names:
-                usage = " ".join(f"<{arg}>" for arg in self.operations_metadata[name].get("args", []))
-                marker = ">>" if name == selected_name else "  "
-                lines.append(f"{marker} {name} {usage}".rstrip())
-                if name == selected_name:
-                    help_text = self.operations_metadata[name].get("help", "")
-                    if help_text:
-                        lines.append(f"   {help_text}")
-            lines.append("")
-        return "\n".join(lines)
+        help_text = self.operations_metadata[name].get("help", "")
+        if help_text:
+            fragments.append(("class:side", f"  {help_text}\n"))
+        return fragments
+
+    def _operation_row_width(self) -> int:
+        return max(24, min(72, int(self.config.get("side_panel_width", 44))) - 2)
 
     def _history_text(self) -> str:
         entries = self.history.get_all_entries()
@@ -1580,6 +1643,7 @@ class FullScreenInteractiveApp:
                     f"show_footer: {self.config.get('show_footer')}",
                     f"show_shortcut_hints: {self.config.get('show_shortcut_hints')}",
                     f"focus_cycle: {', '.join(self.focus_cycle)}",
+                    f"operations_grouping: {self._operations_grouping()}",
                     "",
                     "Edit tui.json directly for advanced behavior changes.",
                     f"Config: {self.config.config_file}",
@@ -1689,6 +1753,11 @@ class FullScreenInteractiveApp:
                 self.activate_menu_selection()
             else:
                 self.activate_panel_selection()
+
+        @kb.add("g", filter=panel_focus, eager=True)
+        def _(event: Any) -> None:
+            if self.view == "operations":
+                self.toggle_operations_grouping()
 
         @kb.add("enter", filter=more_focus, eager=True)
         def _(event: Any) -> None:
@@ -1899,7 +1968,8 @@ class FullScreenInteractiveApp:
         try:
             from prompt_toolkit.application import get_app
 
-            get_app().layout.focus(self.side_panel)
+            target = self.operations_window if self.view == "operations" else self.side_panel
+            get_app().layout.focus(target)
         except Exception:
             pass
 

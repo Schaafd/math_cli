@@ -344,11 +344,36 @@ def test_tui_operations_text_shows_selected_operation_marker(tui):
     tui.operation_index = names.index("derivative") if "derivative" in names else 0
     selected = tui._selected_operation_name()
     text = tui._operations_text()
+    fragments = tui._operations_fragments()
 
     assert f"Selected: {selected}" in text
-    assert f">> {selected}" in text
+    assert any(fragment[0] == "class:button.focused" and str(selected) in fragment[1] for fragment in fragments)
+    assert any(fragment[0] == "[SetCursorPosition]" for fragment in fragments)
     assert not any(name.startswith("_") for name in names)
     assert not any(name.startswith("_") for name in tui._more_operation_names())
+
+
+def test_tui_operations_grouping_toggle_and_visible_order(tui):
+    tui.set_view("operations")
+
+    category_names = tui._operation_names_for_view()
+    category_text = tui._operations_text()
+
+    assert tui._operations_grouping() == "category"
+    assert "Grouping: Category" in category_text
+    assert category_names != sorted(category_names)
+
+    tui.toggle_operations_grouping()
+
+    alphabetical_names = tui._operation_names_for_view()
+    alphabetical_text = tui._operations_text()
+
+    assert tui._operations_grouping() == "alphabetical"
+    assert tui.config.get("operations_grouping") == "alphabetical"
+    assert tui.operation_index == 0
+    assert alphabetical_names == sorted(alphabetical_names)
+    assert "Alphabetical" in alphabetical_text
+    assert "Grouping: Alphabetical" in alphabetical_text
 
 
 def test_tui_focus_labels_match_visible_components(tui):
