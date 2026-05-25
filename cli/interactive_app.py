@@ -163,6 +163,7 @@ class FullScreenInteractiveApp:
         from prompt_toolkit.key_binding import KeyBindings
         from prompt_toolkit.layout.containers import Window
         from prompt_toolkit.layout.controls import FormattedTextControl
+        from prompt_toolkit.layout.margins import ScrollbarMargin
         from prompt_toolkit.widgets import Label, TextArea
 
         self.Button = TUIButton
@@ -198,6 +199,9 @@ class FullScreenInteractiveApp:
         self.operation_index = 0
         self.history_index = 0
         self.session_index = 0
+        self.favorite_index = 0
+        self.more_operation_index = 0
+        self.more_operations_open = False
         self.focus_area = "input"
         self.focus_cycle = self._configured_focus_cycle()
         self.status = "Ready"
@@ -237,6 +241,26 @@ class FullScreenInteractiveApp:
             focusable=True,
         )
         self.nav_window = Window(self.nav_control, height=1, style=self._nav_style)
+        self.favorites_control = FormattedTextControl(
+            self._favorite_fragments,
+            focusable=True,
+        )
+        self.favorites_window = Window(
+            self.favorites_control,
+            height=1,
+            style="class:favorites",
+        )
+        self.more_operations_control = FormattedTextControl(
+            self._more_operations_fragments,
+            focusable=True,
+        )
+        self.more_operations_window = Window(
+            self.more_operations_control,
+            height=Dimension(preferred=8, min=4, max=10),
+            right_margins=[ScrollbarMargin(display_arrows=True)],
+            style="class:more.popup",
+            wrap_lines=False,
+        )
 
         self._append_output("MathCLI Interactive")
         self._append_output(f"Theme: {self.config.get('theme', DEFAULT_THEME_NAME)}  Config: {self.config.config_file.name}")
@@ -765,31 +789,34 @@ class FullScreenInteractiveApp:
         return self._build_workspace()
 
     def _build_command_bar(self) -> Any:
-        from prompt_toolkit.layout.containers import HSplit, VSplit, Window
-        from prompt_toolkit.layout.dimension import Dimension
+        from prompt_toolkit.layout.containers import HSplit, Window
 
         input_row = self._panel(self.input, "Input", style="class:panel.input")
-        quick_row = VSplit(
-            [
-                *[
-                    self.Button(command, handler=lambda cmd=command: self.insert_command(cmd), width=12)
-                    for command in self.quick_commands
-                ],
-                Window(width=Dimension(weight=1), style="class:footer"),
-            ],
-            height=1,
-            style="class:footer",
-        )
+        favorites_row = self._build_favorites_bar()
 
         children: List[Any] = [
+            *([self._build_more_operations_popup()] if self.more_operations_open else []),
             Window(height=1, char=" ", style="class:gutter"),
             input_row,
-            quick_row,
+            favorites_row,
         ]
         if bool(self.config.get("show_shortcut_hints", True)):
             children.append(self.Label(self._shortcut_help, style="class:footer.hint"))
-        minimum_height = 5 if bool(self.config.get("show_shortcut_hints", True)) else 4
+        minimum_height = 14 if self.more_operations_open else 5
+        if not bool(self.config.get("show_shortcut_hints", True)):
+            minimum_height -= 1
         return HSplit(children, height=max(minimum_height, int(self.config.get("footer_height", minimum_height))), style="class:footer")
+
+    def _build_favorites_bar(self) -> Any:
+        self.favorites_window.height = 1
+        return self.favorites_window
+
+    def _build_more_operations_popup(self) -> Any:
+        return self._panel(
+            self.more_operations_window,
+            "More Operations",
+            style="class:panel.more",
+        )
 
     def _build_footer(self) -> Any:
         return self._build_command_bar()
@@ -880,6 +907,11 @@ class FullScreenInteractiveApp:
             return self._export_text()
         return self._operations_text()
 
+    def _side_panel_title(self) -> str:
+        if self.view == "settings":
+            return f"Settings / {self.settings_section.title()}"
+        return self.view.title()
+
     def _update_panel_text(self) -> None:
         if not hasattr(self, "side_panel"):
             return
@@ -891,10 +923,22 @@ class FullScreenInteractiveApp:
 
     def _configured_focus_cycle(self) -> List[str]:
         configured = self.config.get("focus_cycle", ["transcript", "nav", "panel", "input"])
-        valid = {"transcript", "nav", "panel", "input"}
+        aliases = {
+            "calculation": "transcript",
+            "top_menu": "nav",
+            "menu": "nav",
+            "context": "panel",
+            "details": "panel",
+            "more_operations": "more",
+        }
+        valid = {"transcript", "nav", "panel", "input", "favorites", "more"}
         if not isinstance(configured, list):
             return ["transcript", "nav", "panel", "input"]
-        focus_cycle = [str(item) for item in configured if str(item) in valid]
+        focus_cycle = []
+        for item in configured:
+            normalized = aliases.get(str(item), str(item))
+            if normalized in valid:
+                focus_cycle.append(normalized)
         return focus_cycle or ["transcript", "nav", "panel", "input"]
 
     def _build_settings_panel(self, full_width: bool = False) -> Any:
@@ -1071,6 +1115,132 @@ class FullScreenInteractiveApp:
     def _layout_selected(self, index: int) -> bool:
         return self.view == "settings" and self.settings_section == "layout" and self.menu_focus == "items" and self.layout_index == index
 
+    def _favorite_commands_for_width(self, columns: int | None = None) -> List[str]:
+        columns = columns or self._terminal_columns()
+        common = [
+            "add",
+            "subtract",
+            "multiply",
+            "divide",
+            "power",
+            "sqrt",
+            "sin",
+            "cos",
+            "tan",
+            "log",
+            "ln",
+            "mean",
+            "median",
+            "derivative",
+            "integrate",
+            "simplify",
+        ]
+        commands: List[str] = []
+        for command in [*self.quick_commands, *common]:
+            if command in self.operations_metadata and command not in commands:
+                commands.append(command)
+
+        slots = max(3, columns // 12)
+        visible_count = max(2, slots - 1)
+        return commands[:visible_count]
+
+    def _favorite_fragments(self) -> Any:
+        from prompt_toolkit.mouse_events import MouseEventType
+
+        columns = self._terminal_columns()
+        commands = self._favorite_commands_for_width(columns)
+        labels = [*commands, "..."]
+        base_width = max(1, columns // len(labels))
+        remainder = columns % len(labels)
+        fragments: List[Any] = []
+        used_width = 0
+
+        for index, label in enumerate(labels):
+            width = base_width + (1 if index < remainder else 0)
+            is_more = label == "..."
+            selected = self.focus_area == "favorites" and self.favorite_index == index
+            style = "class:favorites.item.selected" if selected or (is_more and self.more_operations_open) else "class:favorites.item"
+            text = self._nav_tab_text(label, width)
+            used_width += len(text)
+
+            def mouse_handler(mouse_event: Any, selected_index: int = index, command: str = label) -> None:
+                if mouse_event.event_type in {MouseEventType.MOUSE_MOVE, MouseEventType.MOUSE_DOWN}:
+                    self.favorite_index = selected_index
+                    self.focus_area = "favorites"
+                    self.status = f"Focus: {self._focus_label()}"
+                    self._focus_favorites()
+                if mouse_event.event_type == MouseEventType.MOUSE_UP:
+                    if command == "...":
+                        self.toggle_more_operations()
+                    else:
+                        self.insert_command(command)
+                        self.status = f"Inserted {command}"
+                        self._refresh()
+
+            fragments.append((style, text, mouse_handler))
+
+        if used_width < columns:
+            fragments.append(("class:favorites", " " * (columns - used_width)))
+        return fragments
+
+    def toggle_more_operations(self) -> None:
+        self.more_operations_open = not self.more_operations_open
+        if self.more_operations_open:
+            self.focus_area = "more"
+            self.status = "Focus: More operations"
+            self._focus_more_operations()
+        else:
+            self.status = "Closed more operations"
+            self._focus_input()
+        self._refresh(clear=True)
+
+    def _more_operation_names(self) -> List[str]:
+        return sorted(name for name in self.operations_metadata if not name.startswith("_"))
+
+    def _move_more_operation_selection(self, direction: str) -> None:
+        names = self._more_operation_names()
+        if not names:
+            return
+        delta = -1 if direction in {"up", "left"} else 1
+        self.more_operation_index = (self.more_operation_index + delta) % len(names)
+        self.status = f"Selected operation {names[self.more_operation_index]}"
+        self._refresh()
+
+    def _insert_more_operation(self) -> None:
+        names = self._more_operation_names()
+        if not names:
+            return
+        command = names[min(self.more_operation_index, len(names) - 1)]
+        self.more_operations_open = False
+        self.insert_command(command)
+        self.status = f"Inserted {command}"
+        self._refresh(clear=True)
+
+    def _more_operations_fragments(self) -> Any:
+        from prompt_toolkit.mouse_events import MouseEventType
+
+        fragments: List[Any] = []
+        names = self._more_operation_names()
+        if not names:
+            return [("class:more.popup", "No operations available.")]
+        self.more_operation_index = min(self.more_operation_index, len(names) - 1)
+        for index, name in enumerate(names):
+            selected = index == self.more_operation_index
+            style = "class:more.item.selected" if selected else "class:more.item"
+
+            def mouse_handler(mouse_event: Any, selected_index: int = index) -> None:
+                if mouse_event.event_type in {MouseEventType.MOUSE_MOVE, MouseEventType.MOUSE_DOWN}:
+                    self.more_operation_index = selected_index
+                    self.focus_area = "more"
+                    self._focus_more_operations()
+                if mouse_event.event_type == MouseEventType.MOUSE_UP:
+                    self._insert_more_operation()
+
+            if selected:
+                fragments.append(("[SetCursorPosition]", ""))
+            fragments.append((style, f" {name}\n", mouse_handler))
+        return fragments
+
     def move_menu_selection(self, direction: str) -> None:
         if self.view != "settings":
             return
@@ -1194,6 +1364,8 @@ class FullScreenInteractiveApp:
     def _operation_names_for_view(self) -> List[str]:
         names = []
         for name, metadata in sorted(self.operations_metadata.items()):
+            if name.startswith("_"):
+                continue
             if self.operation_query:
                 haystack = f"{name} {metadata.get('help', '')} {metadata.get('category', '')}".lower()
                 if self.operation_query not in haystack:
@@ -1233,7 +1405,13 @@ class FullScreenInteractiveApp:
         title = "Operations"
         if self.operation_query:
             title = f"Operations matching '{self.operation_query}'"
-        lines = [title, "", "Select Operations in the footer or type an operation into the input.", ""]
+        lines = [
+            title,
+            "",
+            "Use arrows to move. Enter inserts the selected operation.",
+            f"Selected: {selected_name or 'none'}",
+            "",
+        ]
         if not grouped:
             lines.append("No matching operations.")
             return "\n".join(lines)
@@ -1242,12 +1420,12 @@ class FullScreenInteractiveApp:
             lines.append("-" * len(category))
             for name in names:
                 usage = " ".join(f"<{arg}>" for arg in self.operations_metadata[name].get("args", []))
-                marker = ">" if name == selected_name else " "
+                marker = ">>" if name == selected_name else "  "
                 lines.append(f"{marker} {name} {usage}".rstrip())
                 if name == selected_name:
                     help_text = self.operations_metadata[name].get("help", "")
                     if help_text:
-                        lines.append(f"  {help_text}")
+                        lines.append(f"   {help_text}")
             lines.append("")
         return "\n".join(lines)
 
@@ -1438,6 +1616,7 @@ class FullScreenInteractiveApp:
         settings_menu = Condition(lambda: self.view == "settings" and self.focus_area == "panel")
         nav_focus = Condition(lambda: self.focus_area == "nav")
         panel_focus = Condition(lambda: self.focus_area == "panel")
+        more_focus = Condition(lambda: self.more_operations_open and self.focus_area == "more")
 
         self._bind(kb, "quit", lambda event: event.app.exit())
         self._bind(kb, "clear_screen", lambda event: event.app.renderer.clear())
@@ -1496,12 +1675,31 @@ class FullScreenInteractiveApp:
             else:
                 self.move_panel_selection("down")
 
+        @kb.add("up", filter=more_focus, eager=True)
+        def _(event: Any) -> None:
+            self._move_more_operation_selection("up")
+
+        @kb.add("down", filter=more_focus, eager=True)
+        def _(event: Any) -> None:
+            self._move_more_operation_selection("down")
+
         @kb.add("enter", filter=panel_focus, eager=True)
         def _(event: Any) -> None:
             if self.view == "settings":
                 self.activate_menu_selection()
             else:
                 self.activate_panel_selection()
+
+        @kb.add("enter", filter=more_focus, eager=True)
+        def _(event: Any) -> None:
+            self._insert_more_operation()
+
+        @kb.add("escape", filter=more_focus, eager=True)
+        def _(event: Any) -> None:
+            self.more_operations_open = False
+            self._focus_input()
+            self.status = "Closed more operations"
+            self._refresh(clear=True)
 
         return kb
 
@@ -1527,6 +1725,9 @@ class FullScreenInteractiveApp:
                 "header": f"bg:{theme['panel_alt']} {theme['text']} bold",
                 "footer": f"bg:{theme['background']} {theme['muted']}",
                 "footer.hint": f"bg:{theme['background']} {theme['muted']}",
+                "favorites": f"bg:{theme['button']} {theme['text']}",
+                "favorites.item": f"bg:{theme['button']} {theme['text']}",
+                "favorites.item.selected": f"bg:{theme['button_focus']} {theme['text']} bold",
                 "toolbar": f"bg:{theme['panel']} {theme['text']}",
                 "workspace": f"bg:{theme['workspace']} {theme['text']}",
                 "gutter": f"bg:{theme['gutter']} {theme['muted']}",
@@ -1545,6 +1746,11 @@ class FullScreenInteractiveApp:
                 "panel.side.focused.title": f"bg:{theme['active_panel']} {theme['accent']} bold",
                 "panel.input": f"bg:{theme['input_panel']} {theme['input_text']}",
                 "panel.input.title": f"bg:{theme['input_panel']} {theme['input_prompt']} bold",
+                "panel.more": f"bg:{theme['active_panel']} {theme['text']}",
+                "panel.more.title": f"bg:{theme['active_panel']} {theme['accent']} bold",
+                "more.popup": f"bg:{theme['active_panel']} {theme['text']}",
+                "more.item": f"bg:{theme['active_panel']} {theme['text']}",
+                "more.item.selected": f"bg:{theme['button_focus']} {theme['text']} bold",
                 "output": f"bg:{theme['inactive_panel']} {theme['text']}",
                 "input": f"bg:{theme['input_panel']} {theme['input_text']}",
                 "side": f"bg:{theme['inactive_panel']} {theme['muted']}",
@@ -1658,10 +1864,26 @@ class FullScreenInteractiveApp:
             self._focus_nav()
         elif self.focus_area == "panel":
             self._focus_panel()
+        elif self.focus_area == "favorites":
+            self._focus_favorites()
+        elif self.focus_area == "more":
+            self._focus_more_operations()
         else:
             self._focus_input()
-        self.status = f"Focus: {self.focus_area}"
+        self.status = f"Focus: {self._focus_label()}"
         self._refresh()
+
+    def _focus_label(self) -> str:
+        labels = {
+            "transcript": "Calculation panel",
+            "nav": "Top menu",
+            "input": "Input",
+            "favorites": "Favorites bar",
+            "more": "More operations",
+        }
+        if self.focus_area == "panel":
+            return f"{self._side_panel_title()} panel"
+        return labels.get(self.focus_area, self.focus_area.replace("_", " ").title())
 
     def _focus_transcript(self) -> None:
         self.focus_area = "transcript"
@@ -1687,6 +1909,24 @@ class FullScreenInteractiveApp:
             from prompt_toolkit.application import get_app
 
             get_app().layout.focus(self.nav_window)
+        except Exception:
+            pass
+
+    def _focus_favorites(self) -> None:
+        self.focus_area = "favorites"
+        try:
+            from prompt_toolkit.application import get_app
+
+            get_app().layout.focus(self.favorites_window)
+        except Exception:
+            pass
+
+    def _focus_more_operations(self) -> None:
+        self.focus_area = "more"
+        try:
+            from prompt_toolkit.application import get_app
+
+            get_app().layout.focus(self.more_operations_window)
         except Exception:
             pass
 

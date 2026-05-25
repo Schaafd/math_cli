@@ -240,6 +240,132 @@ def test_tui_command_bar_uses_distinct_input_panel(tui):
     assert tui.theme["input_panel"] != tui.theme["inactive_panel"]
 
 
+def test_tui_favorites_bar_fills_width_and_exposes_more(tui, monkeypatch):
+    monkeypatch.setattr("shutil.get_terminal_size", lambda fallback=(120, 30): os.terminal_size((120, 30)))
+
+    fragments = tui._favorite_fragments()
+    rendered = "".join(fragment[1] for fragment in fragments if len(fragment) >= 2)
+
+    assert len(rendered) == 120
+    assert "add" in rendered
+    assert "multiply" in rendered
+    assert "..." in rendered
+    assert any(len(fragment) == 3 for fragment in fragments)
+
+
+def test_tui_more_operations_picker_is_alphabetical_and_insertable(tui):
+    names = tui._more_operation_names()
+
+    assert names == sorted(names)
+    assert "add" in names
+
+    tui.more_operations_open = True
+    tui.more_operation_index = names.index("add")
+    fragments = tui._more_operations_fragments()
+
+    assert any(len(fragment) == 3 for fragment in fragments)
+    assert any("add" in fragment[1] for fragment in fragments if len(fragment) >= 2)
+
+    tui._insert_more_operation()
+    assert tui.more_operations_open is False
+    assert tui.input.text.startswith("add")
+
+
+def test_tui_favorites_mouse_handlers_insert_and_open_more(tui, monkeypatch):
+    from prompt_toolkit.mouse_events import MouseEventType
+
+    monkeypatch.setattr("shutil.get_terminal_size", lambda fallback=(120, 30): os.terminal_size((120, 30)))
+
+    class Event:
+        def __init__(self, event_type):
+            self.event_type = event_type
+
+    fragments = [fragment for fragment in tui._favorite_fragments() if len(fragment) == 3]
+    add_fragment = next(fragment for fragment in fragments if "add" in fragment[1])
+    more_fragment = next(fragment for fragment in fragments if "..." in fragment[1])
+
+    add_fragment[2](Event(MouseEventType.MOUSE_DOWN))
+    assert tui.focus_area == "favorites"
+    assert "Favorites bar" in tui.status
+
+    add_fragment[2](Event(MouseEventType.MOUSE_UP))
+    assert tui.input.text.startswith("add")
+    assert "Inserted add" in tui.status
+
+    more_fragment[2](Event(MouseEventType.MOUSE_UP))
+    assert tui.more_operations_open is True
+    assert tui.focus_area == "more"
+
+
+def test_tui_more_operations_mouse_and_empty_branches(tui):
+    from prompt_toolkit.mouse_events import MouseEventType
+
+    class Event:
+        def __init__(self, event_type):
+            self.event_type = event_type
+
+    names = tui._more_operation_names()
+    tui.more_operation_index = names.index("add")
+    fragments = [fragment for fragment in tui._more_operations_fragments() if len(fragment) == 3]
+    add_fragment = next(fragment for fragment in fragments if "add" in fragment[1])
+
+    add_fragment[2](Event(MouseEventType.MOUSE_DOWN))
+    assert tui.focus_area == "more"
+    add_fragment[2](Event(MouseEventType.MOUSE_UP))
+    assert tui.input.text.startswith("add")
+
+    tui.operations_metadata = {}
+    assert "No operations available" in tui._more_operations_fragments()[0][1]
+    tui._move_more_operation_selection("down")
+    tui._insert_more_operation()
+
+
+def test_tui_more_popup_and_focus_application_branches(tui):
+    assert type(tui._build_more_operations_popup()).__name__ == "HSplit"
+
+    tui.more_operations_open = True
+    assert type(tui._build_command_bar()).__name__ == "HSplit"
+
+    tui.config.config["show_shortcut_hints"] = False
+    assert type(tui._build_command_bar()).__name__ == "HSplit"
+
+    for area in ["favorites", "more", "unknown"]:
+        tui.focus_area = area
+        tui._apply_focus_area()
+        assert tui.status.startswith("Focus:")
+
+    tui.toggle_more_operations()
+    assert tui.more_operations_open is False
+
+
+def test_tui_operations_text_shows_selected_operation_marker(tui):
+    tui.set_view("operations")
+    names = tui._operation_names_for_view()
+    tui.operation_index = names.index("derivative") if "derivative" in names else 0
+    selected = tui._selected_operation_name()
+    text = tui._operations_text()
+
+    assert f"Selected: {selected}" in text
+    assert f">> {selected}" in text
+    assert not any(name.startswith("_") for name in names)
+    assert not any(name.startswith("_") for name in tui._more_operation_names())
+
+
+def test_tui_focus_labels_match_visible_components(tui):
+    tui.focus_area = "transcript"
+    assert tui._focus_label() == "Calculation panel"
+
+    tui.set_view("operations")
+    tui.focus_area = "panel"
+    assert tui._focus_label() == "Operations panel"
+
+    tui.focus_area = "favorites"
+    assert tui._focus_label() == "Favorites bar"
+
+    tui.focus_area = "more"
+    assert tui._focus_label() == "More operations"
+
+
 def test_tui_session_actions(tui):
     original = tui.session_manager.current_session_id
     tui.new_session()

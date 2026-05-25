@@ -13,7 +13,7 @@ DEFAULT_THEME_NAME = "dark-plus"
 
 
 DEFAULT_TUI_CONFIG: Dict[str, Any] = {
-    "config_version": 7,
+    "config_version": 8,
     "theme": DEFAULT_THEME_NAME,
     "show_footer": True,
     "panel_gap": 1,
@@ -27,7 +27,7 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
     "history_limit": 300,
     "export_directory": "~",
     "show_shortcut_hints": True,
-    "focus_cycle": ["transcript", "nav", "panel", "input"],
+    "focus_cycle": ["calculation", "top_menu", "context", "input"],
     "quick_commands": ["add", "subtract", "multiply", "divide", "power"],
     "keybindings": {
         "quit": "escape q",
@@ -473,6 +473,10 @@ class TUIConfig:
                     "input_prompt",
                 ):
                     theme[color_key] = default_theme[color_key]
+
+        if config_version < 8:
+            if config.get("focus_cycle") == ["transcript", "nav", "panel", "input"]:
+                config["focus_cycle"] = DEFAULT_TUI_CONFIG["focus_cycle"]
 
         config["config_version"] = int(DEFAULT_TUI_CONFIG["config_version"])
         return config

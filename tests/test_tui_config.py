@@ -10,14 +10,14 @@ def test_tui_config_creates_editable_default_file(tmp_path):
 
     assert config_path.exists()
     data = json.loads(config_path.read_text())
-    assert data["config_version"] == 7
+    assert data["config_version"] == 8
     assert data["theme"] == "dark-plus"
     assert data["keybindings"]["history"] == "escape h"
     assert data["panel_gap"] == 1
     assert data["side_panel_min_width"] == 36
     assert data["side_panel_max_width"] == 72
     assert data["show_shortcut_hints"] is True
-    assert data["focus_cycle"] == ["transcript", "nav", "panel", "input"]
+    assert data["focus_cycle"] == ["calculation", "top_menu", "context", "input"]
     assert len(data["themes"]) == 10
     assert data["themes"]["dark-plus"]["workspace"] == "#1e1e1e"
     assert data["themes"]["dark-plus"]["nav_selected"] == "#094771"
@@ -77,7 +77,7 @@ def test_tui_config_migrates_legacy_function_key_defaults(tmp_path):
     assert config.keybinding("history") == "escape h"
     assert config.keybinding("settings") == "escape s"
     data = json.loads(config_path.read_text())
-    assert data["config_version"] == 7
+    assert data["config_version"] == 8
     assert data["panel_gap"] == 1
 
 
@@ -116,10 +116,10 @@ def test_tui_config_migrates_v2_to_include_new_theme_set(tmp_path):
     config = TUIConfig(config_path)
     data = json.loads(config_path.read_text())
 
-    assert data["config_version"] == 7
+    assert data["config_version"] == 8
     assert "tokyo-night" in config.get("themes")
     assert "custom" in config.get("themes")
-    assert data["focus_cycle"] == ["transcript", "nav", "panel", "input"]
+    assert data["focus_cycle"] == ["calculation", "top_menu", "context", "input"]
 
 
 def test_tui_config_migrates_v3_to_curated_theme_set(tmp_path):
@@ -142,7 +142,7 @@ def test_tui_config_migrates_v3_to_curated_theme_set(tmp_path):
     config = TUIConfig(config_path)
     data = json.loads(config_path.read_text())
 
-    assert data["config_version"] == 7
+    assert data["config_version"] == 8
     assert data["theme"] == "dark-plus"
     assert "midnight" not in data["themes"]
     assert "ember" not in data["themes"]
@@ -179,7 +179,7 @@ def test_tui_config_migrates_v6_theme_surfaces_to_primary_accent(tmp_path):
     data = json.loads(config_path.read_text())
     tokyo = data["themes"]["tokyo-night"]
 
-    assert data["config_version"] == 7
+    assert data["config_version"] == 8
     assert tokyo["title_bg"] == "#24283b"
     assert tokyo["title_text"] == "#7aa2f7"
     assert tokyo["input_panel"] == "#292e42"
