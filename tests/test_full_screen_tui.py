@@ -23,7 +23,7 @@ def tui(tmp_path, monkeypatch):
 
 
 def test_tui_builds_layout_keybindings_and_style(tui):
-    assert type(tui._build_layout()).__name__ == "HSplit"
+    assert type(tui._build_layout()).__name__ == "FloatContainer"
     assert type(tui._build_title()).__name__ == "HSplit"
     assert type(tui._build_header()).__name__ == "Label"
     assert type(tui._build_nav()).__name__ == "Window"
@@ -240,6 +240,20 @@ def test_tui_command_bar_uses_distinct_input_panel(tui):
     assert tui.theme["input_panel"] != tui.theme["inactive_panel"]
 
 
+def test_tui_side_panel_width_is_responsive(tui, monkeypatch):
+    monkeypatch.setattr("shutil.get_terminal_size", lambda fallback=(120, 30): os.terminal_size((70, 24)))
+    narrow = tui._side_panel_dimension()
+
+    assert narrow.max <= 35
+    assert narrow.min <= narrow.preferred <= narrow.max
+
+    monkeypatch.setattr("shutil.get_terminal_size", lambda fallback=(120, 30): os.terminal_size((160, 36)))
+    wide = tui._side_panel_dimension()
+
+    assert wide.preferred >= narrow.preferred
+    assert wide.max > narrow.max
+
+
 def test_tui_favorites_bar_fills_width_and_exposes_more(tui, monkeypatch):
     monkeypatch.setattr("shutil.get_terminal_size", lambda fallback=(120, 30): os.terminal_size((120, 30)))
 
@@ -322,12 +336,15 @@ def test_tui_more_operations_mouse_and_empty_branches(tui):
 
 def test_tui_more_popup_and_focus_application_branches(tui):
     assert type(tui._build_more_operations_popup()).__name__ == "HSplit"
+    assert tui._more_popup_height() == 12
 
     tui.more_operations_open = True
     assert type(tui._build_command_bar()).__name__ == "HSplit"
+    assert tui._command_bar_height() >= 5
 
     tui.config.config["show_shortcut_hints"] = False
     assert type(tui._build_command_bar()).__name__ == "HSplit"
+    assert tui._command_bar_height() >= 4
 
     for area in ["favorites", "more", "unknown"]:
         tui.focus_area = area
@@ -336,6 +353,34 @@ def test_tui_more_popup_and_focus_application_branches(tui):
 
     tui.toggle_more_operations()
     assert tui.more_operations_open is False
+
+
+def test_tui_settings_tabs_fill_width_and_are_mouse_addressable(tui, monkeypatch):
+    from prompt_toolkit.mouse_events import MouseEventType
+
+    monkeypatch.setattr("shutil.get_terminal_size", lambda fallback=(120, 30): os.terminal_size((120, 30)))
+    tui.set_view("settings")
+
+    class Event:
+        def __init__(self, event_type):
+            self.event_type = event_type
+
+    fragments = tui._settings_tab_fragments()
+    rendered = "".join(fragment[1] for fragment in fragments if len(fragment) >= 2)
+    mouse_fragments = [fragment for fragment in fragments if len(fragment) == 3]
+
+    assert len(rendered) == 120
+    assert any("Themes" in fragment[1] for fragment in mouse_fragments)
+    assert any(fragment[0] == "class:settings.item.selected" for fragment in fragments)
+
+    layout_fragment = next(fragment for fragment in mouse_fragments if "Layout" in fragment[1])
+    layout_fragment[2](Event(MouseEventType.MOUSE_MOVE))
+    assert tui.focus_area == "panel"
+    assert tui.menu_focus == "tabs"
+    assert tui.settings_tabs[tui.settings_tab_index] == "layout"
+
+    layout_fragment[2](Event(MouseEventType.MOUSE_UP))
+    assert tui.settings_section == "layout"
 
 
 def test_tui_operations_text_shows_selected_operation_marker(tui):

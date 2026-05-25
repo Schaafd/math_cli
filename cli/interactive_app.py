@@ -247,6 +247,15 @@ class FullScreenInteractiveApp:
             style="class:side",
             wrap_lines=False,
         )
+        self.settings_tabs_control = FormattedTextControl(
+            self._settings_tab_fragments,
+            focusable=True,
+        )
+        self.settings_tabs_window = Window(
+            self.settings_tabs_control,
+            height=1,
+            style="class:settings.tabs",
+        )
         self.nav_control = FormattedTextControl(
             self._nav_fragments,
             focusable=True,
@@ -693,7 +702,7 @@ class FullScreenInteractiveApp:
             pass
 
     def _build_layout(self) -> Any:
-        from prompt_toolkit.layout.containers import ConditionalContainer, DynamicContainer, HSplit
+        from prompt_toolkit.layout.containers import ConditionalContainer, DynamicContainer, Float, FloatContainer, HSplit
         from prompt_toolkit.filters import Condition
         from prompt_toolkit.layout.containers import Window
 
@@ -706,7 +715,7 @@ class FullScreenInteractiveApp:
             filter=Condition(lambda: bool(self.config.get("show_footer", True))),
         )
 
-        return HSplit(
+        base_layout = HSplit(
             [
                 title,
                 header,
@@ -716,6 +725,22 @@ class FullScreenInteractiveApp:
                 command_bar,
             ],
             style="class:workspace",
+        )
+        return FloatContainer(
+            content=base_layout,
+            floats=[
+                Float(
+                    content=ConditionalContainer(
+                        DynamicContainer(self._build_more_operations_popup),
+                        filter=Condition(lambda: self.more_operations_open),
+                    ),
+                    left=1,
+                    right=1,
+                    bottom=self._command_bar_height(),
+                    height=self._more_popup_height,
+                    z_index=20,
+                )
+            ],
         )
 
     def _build_title(self) -> Any:
@@ -806,28 +831,55 @@ class FullScreenInteractiveApp:
         favorites_row = self._build_favorites_bar()
 
         children: List[Any] = [
-            *([self._build_more_operations_popup()] if self.more_operations_open else []),
             Window(height=1, char=" ", style="class:gutter"),
             input_row,
             favorites_row,
         ]
         if bool(self.config.get("show_shortcut_hints", True)):
             children.append(self.Label(self._shortcut_help, style="class:footer.hint"))
-        minimum_height = 14 if self.more_operations_open else 5
+        return HSplit(children, height=self._command_bar_height(), style="class:footer")
+
+    def _command_bar_height(self) -> int:
+        minimum_height = 5
         if not bool(self.config.get("show_shortcut_hints", True)):
             minimum_height -= 1
-        return HSplit(children, height=max(minimum_height, int(self.config.get("footer_height", minimum_height))), style="class:footer")
+        return max(minimum_height, int(self.config.get("footer_height", minimum_height)))
 
     def _build_favorites_bar(self) -> Any:
         self.favorites_window.height = 1
         return self.favorites_window
 
     def _build_more_operations_popup(self) -> Any:
-        return self._panel(
-            self.more_operations_window,
-            "More Operations",
+        from prompt_toolkit.layout.containers import HSplit, VSplit, Window
+        from prompt_toolkit.layout.dimension import Dimension
+
+        title = " More Operations "
+        columns = self._terminal_columns()
+        horizontal = max(1, columns - 4)
+        top_border = f"+{title}{'-' * max(0, horizontal - len(title))}+"
+        bottom_border = f"+{'-' * horizontal}+"
+        bordered_body = VSplit(
+            [
+                Window(width=1, char="|", style="class:more.border"),
+                self.more_operations_window,
+                Window(width=1, char="|", style="class:more.border"),
+            ],
             style="class:panel.more",
         )
+        return HSplit(
+            [
+                self.Label(top_border, style="class:more.border"),
+                bordered_body,
+                self.Label(bottom_border, style="class:more.border"),
+            ],
+            height=Dimension.exact(self._more_popup_height()),
+            style="class:panel.more",
+        )
+
+    def _more_popup_height(self) -> int:
+        reserved_rows = self._command_bar_height() + int(self.config.get("header_height", 1)) + int(self.config.get("nav_height", 1)) + 4
+        available_rows = self._terminal_rows() - reserved_rows
+        return max(6, min(12, available_rows))
 
     def _build_footer(self) -> Any:
         return self._build_command_bar()
@@ -909,6 +961,10 @@ class FullScreenInteractiveApp:
             min_width = min(min_width, 34)
             preferred_width = min(preferred_width, 38)
             max_width = min(max_width, 44)
+        max_by_screen = max(24, min(max_width, columns // 2))
+        max_width = min(max_width, max_by_screen)
+        min_width = min(min_width, max_width)
+        preferred_width = min(max(preferred_width, min_width), max_width)
         return Dimension(min=min_width, preferred=preferred_width, max=max_width)
 
     def _side_panel_text(self) -> str:
@@ -961,54 +1017,12 @@ class FullScreenInteractiveApp:
         return focus_cycle or ["transcript", "nav", "panel", "input"]
 
     def _build_settings_panel(self, full_width: bool = False) -> Any:
-        from prompt_toolkit.layout.containers import HSplit, VSplit, Window
+        from prompt_toolkit.layout.containers import HSplit
         from prompt_toolkit.layout.dimension import Dimension
 
         body = self.side_panel
 
-        root_buttons = VSplit(
-            [
-                self.Button(
-                    "Themes",
-                    handler=lambda: self.set_settings_section("themes"),
-                    width=11,
-                    selected=lambda: self._settings_tab_selected("themes"),
-                ),
-                Window(width=1, char=" ", style="class:gutter"),
-                self.Button(
-                    "Layout",
-                    handler=lambda: self.set_settings_section("layout"),
-                    width=10,
-                    selected=lambda: self._settings_tab_selected("layout"),
-                ),
-                Window(width=1, char=" ", style="class:gutter"),
-                self.Button(
-                    "Keys",
-                    handler=lambda: self.set_settings_section("shortcuts"),
-                    width=8,
-                    selected=lambda: self._settings_tab_selected("shortcuts"),
-                ),
-                Window(width=1, char=" ", style="class:gutter"),
-                self.Button(
-                    "Behavior",
-                    handler=lambda: self.set_settings_section("behavior"),
-                    width=12,
-                    selected=lambda: self._settings_tab_selected("behavior"),
-                ),
-                Window(width=1, char=" ", style="class:gutter"),
-                self.Button(
-                    "About",
-                    handler=lambda: self.set_settings_section("about"),
-                    width=9,
-                    selected=lambda: self._settings_tab_selected("about"),
-                ),
-                Window(width=Dimension(weight=1)),
-            ],
-            style="class:toolbar",
-            height=1,
-        )
-
-        children: List[Any] = [root_buttons]
+        children: List[Any] = [self.settings_tabs_window]
         if self.settings_section == "themes":
             children.append(self._theme_buttons())
         elif self.settings_section == "layout":
@@ -1127,6 +1141,50 @@ class FullScreenInteractiveApp:
 
     def _settings_tab_selected(self, tab: str) -> bool:
         return self.view == "settings" and self.menu_focus == "tabs" and self.settings_tabs[self.settings_tab_index] == tab
+
+    def _settings_tab_fragments(self) -> Any:
+        from prompt_toolkit.mouse_events import MouseEventType
+
+        labels = {
+            "themes": "Themes",
+            "layout": "Layout",
+            "shortcuts": "Keys",
+            "behavior": "Behavior",
+            "about": "About",
+        }
+        columns = self._terminal_columns()
+        tab_count = len(self.settings_tabs)
+        base_width = max(1, columns // max(1, tab_count))
+        remainder = columns % max(1, tab_count)
+        fragments: List[Any] = []
+        used_width = 0
+
+        for index, tab in enumerate(self.settings_tabs):
+            width = base_width + (1 if index < remainder else 0)
+            selected = self.settings_section == tab or (
+                self.focus_area == "panel"
+                and self.menu_focus == "tabs"
+                and self.settings_tab_index == index
+            )
+            style = "class:settings.item.selected" if selected else "class:settings.item"
+            text = self._nav_tab_text(labels[tab], width)
+            used_width += len(text)
+
+            def mouse_handler(mouse_event: Any, selected_tab: str = tab, selected_index: int = index) -> None:
+                if mouse_event.event_type in {MouseEventType.MOUSE_MOVE, MouseEventType.MOUSE_DOWN}:
+                    self.settings_tab_index = selected_index
+                    self.menu_focus = "tabs"
+                    self.focus_area = "panel"
+                    self.status = f"Selected {selected_tab}"
+                    self._focus_panel()
+                if mouse_event.event_type == MouseEventType.MOUSE_UP:
+                    self.set_settings_section(selected_tab)
+
+            fragments.append((style, text, mouse_handler))
+
+        if used_width < columns:
+            fragments.append(("class:settings.tabs", " " * (columns - used_width)))
+        return fragments
 
     def _theme_selected(self, index: int) -> bool:
         return self.view == "settings" and self.settings_section == "themes" and self.menu_focus == "items" and self.theme_index == index
@@ -1817,9 +1875,13 @@ class FullScreenInteractiveApp:
                 "panel.input.title": f"bg:{theme['input_panel']} {theme['input_prompt']} bold",
                 "panel.more": f"bg:{theme['active_panel']} {theme['text']}",
                 "panel.more.title": f"bg:{theme['active_panel']} {theme['accent']} bold",
+                "more.border": f"bg:{theme['active_panel']} {theme['accent']} bold",
                 "more.popup": f"bg:{theme['active_panel']} {theme['text']}",
                 "more.item": f"bg:{theme['active_panel']} {theme['text']}",
                 "more.item.selected": f"bg:{theme['button_focus']} {theme['text']} bold",
+                "settings.tabs": f"bg:{theme['panel_alt']} {theme['text']}",
+                "settings.item": f"bg:{theme['panel_alt']} {theme['text']}",
+                "settings.item.selected": f"bg:{theme['button_focus']} {theme['text']} bold",
                 "output": f"bg:{theme['inactive_panel']} {theme['text']}",
                 "input": f"bg:{theme['input_panel']} {theme['input_text']}",
                 "side": f"bg:{theme['inactive_panel']} {theme['muted']}",
@@ -1868,6 +1930,11 @@ class FullScreenInteractiveApp:
         import shutil
 
         return max(40, shutil.get_terminal_size((120, 30)).columns)
+
+    def _terminal_rows(self) -> int:
+        import shutil
+
+        return max(10, shutil.get_terminal_size((120, 30)).lines)
 
     def _fit_line(self, text: str, width: int) -> str:
         if len(text) > width:
