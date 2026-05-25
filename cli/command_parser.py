@@ -66,12 +66,17 @@ def create_global_argument_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(add_help=False)
 
-    parser.add_argument('--interactive', '-i', action='store_true', help='Run in interactive mode')
+    parser.add_argument('--interactive', '-i', action='store_true', help='Run the full-screen interactive app')
+    parser.add_argument(
+        '--classic-interactive',
+        action='store_true',
+        help='Run the classic prompt-loop interactive mode',
+    )
     parser.add_argument(
         '--full-screen-tui',
         '--tui',
         action='store_true',
-        help='Run the clickable full-screen terminal UI',
+        help='Compatibility alias for the full-screen interactive app',
     )
     parser.add_argument('--plugin-dir', action='append', help='Directory containing additional plugins')
     parser.add_argument('--list-plugins', action='store_true', help='List available operation plugins')

@@ -17,10 +17,7 @@ def tui(tmp_path, monkeypatch):
 
     from utils.sessions import SessionManager
 
-    monkeypatch.setattr(
-        "cli.full_screen_tui.get_session_manager",
-        lambda: SessionManager(config_dir=tmp_path),
-    )
+    monkeypatch.setattr("cli.interactive_app.get_session_manager", lambda: SessionManager(config_dir=tmp_path))
     return FullScreenMathTUI(manager, manager.get_operations_metadata())
 
 
@@ -90,8 +87,17 @@ def test_tui_views_and_side_panel_text(tui):
     tui.set_settings_section("layout")
     assert "side_panel_width" in tui._side_panel_text()
 
-    tui.set_settings_section("keys")
+    tui.set_settings_section("shortcuts")
     assert "Keyboard Shortcuts" in tui._side_panel_text()
+
+    tui.set_view("sessions")
+    assert "Sessions" in tui._side_panel_text()
+
+    tui.set_view("variables")
+    assert "Variables" in tui._side_panel_text() or "No variables" in tui._side_panel_text()
+
+    tui.set_view("help")
+    assert "/operations" in tui._side_panel_text()
 
 
 def test_tui_keybindings_do_not_steal_backspace(tui):
@@ -125,22 +131,29 @@ def test_tui_buttons_render_without_angle_brackets(tui):
 
 
 def test_tui_keyboard_menu_navigation_and_activation(tui):
+    tui.set_view("operations")
+    tui.move_top_menu_selection("right")
+    assert tui.menu_items[tui.menu_index] == "history"
+    tui.activate_menu_selection()
+    assert tui.view == "history"
+
     tui.set_view("settings")
 
     assert tui.menu_focus == "tabs"
     tui.move_menu_selection("right")
-    assert tui.settings_tabs[tui.settings_tab_index] == "layout"
+    assert tui.settings_tabs[tui.settings_tab_index] == "themes"
 
     tui.activate_menu_selection()
-    assert tui.settings_section == "layout"
+    assert tui.settings_section == "themes"
     assert tui.menu_focus == "items"
-
-    current_width = int(tui.config.get("side_panel_width"))
-    tui.activate_menu_selection()
-    assert tui.config.get("side_panel_width") == max(34, current_width - 4)
 
     tui.move_menu_selection("up")
     assert tui.menu_focus == "tabs"
+
+    tui.set_settings_section("layout")
+    current_width = int(tui.config.get("side_panel_width"))
+    tui.activate_menu_selection()
+    assert tui.config.get("side_panel_width") == max(34, current_width - 4)
 
     tui.set_view("themes")
     assert tui.menu_focus == "items"
@@ -198,6 +211,145 @@ def test_tui_clear_actions(tui):
     tui.run_command("add 1 1")
     tui.clear_current_session()
     assert tui.session_manager.get_current_commands() == []
+
+
+def test_tui_slash_commands_and_legacy_hints(tui):
+    tui.run_command("/operations add")
+    assert tui.view == "operations"
+    assert tui.operation_query == "add"
+
+    tui.run_command("/themes")
+    assert tui.view == "settings"
+    assert tui.settings_section == "themes"
+
+    tui.run_command("/settings")
+    assert tui.view == "settings"
+    assert tui.settings_section == "about"
+
+    tui.run_command("/sessions")
+    assert tui.view == "sessions"
+
+    tui.run_command("history")
+    assert "Use /history in interactive mode." in tui.output.text
+
+    tui.run_command("add 2 3")
+    assert "5" in tui.output.text
+
+    tui.run_command("/history 1")
+    assert tui.input.text.startswith("add 2 3")
+
+    tui.run_command("/history clear")
+    assert tui.history.get_all_entries() == []
+
+
+def test_tui_slash_bookmarks_exports_and_sessions(tui, tmp_path):
+    tui.run_command("add 4 5")
+    tui.run_command("/bookmark save 1 nine")
+    assert "Saved bookmark nine" in tui.status
+
+    tui.run_command("/bookmark get nine")
+    assert tui.input.text.startswith("add 4 5")
+
+    export_path = tmp_path / "history.json"
+    tui.run_command(f"/export json {export_path}")
+    assert export_path.exists()
+
+    tui.run_command("/session new Scratch")
+    assert "Created Scratch" in tui.output.text
+
+    tui.run_command("/session current")
+    assert "Current session: Scratch" in tui.output.text
+
+
+def test_tui_slash_command_error_branches(tui, tmp_path):
+    tui.run_command('/help "unterminated')
+    assert "Slash command error" in tui.status
+
+    tui.run_command("/missing")
+    assert "Unknown slash command" in tui.status
+
+    tui.run_command("/help sessions")
+    assert "Help: sessions" in tui.status
+
+    tui.run_command("/history nope")
+    assert "Usage: /history" in tui.output.text
+
+    tui.run_command("/history 99")
+    assert "History entry not found" in tui.status
+
+    tui.run_command("/export xml")
+    assert "Export format must be markdown, json, or csv" in tui.status
+
+    csv_path = tmp_path / "history.csv"
+    tui.run_command(f"/export csv {csv_path}")
+    assert csv_path.exists()
+
+    tui.run_command("/clear")
+    assert tui.output.text == ""
+    assert tui.status == "Workspace cleared"
+
+    tui.run_command("/quit")
+    assert tui.status == "Exiting"
+
+
+def test_tui_session_slash_command_branches(tui):
+    original = tui.session_manager.current_session_id
+
+    tui.run_command("/session next")
+    assert "No other session available" in tui.status
+
+    tui.run_command("/session prev")
+    assert "No other session available" in tui.status
+
+    tui.run_command("/session new Alpha")
+    alpha = tui.session_manager.current_session_id
+    tui.run_command("/session new Beta")
+    beta = tui.session_manager.current_session_id
+
+    tui.run_command("/session open Alpha")
+    assert tui.session_manager.current_session_id == alpha
+
+    tui.run_command("/session rename Renamed Alpha")
+    assert "Renamed session" in tui.status
+
+    tui.run_command("/session delete Beta")
+    assert "Deleted session Beta" in tui.status
+
+    tui.run_command("/session clear")
+    assert tui.session_manager.get_current_commands() == []
+
+    tui.run_command("/session nonsense")
+    assert "Usage: /session" in tui.output.text
+
+    if original:
+        tui.open_session(original)
+
+
+def test_tui_bookmark_edge_cases_and_panel_text(tui):
+    tui.run_command("/bookmark")
+    assert "No bookmarks saved" in tui.output.text
+
+    tui.run_command("/bookmark save 99 missing")
+    assert "History entry not found" in tui.status
+
+    tui.run_command("/bookmark get missing")
+    assert "Bookmark not found" in tui.status
+
+    tui.run_command("/bookmark delete missing")
+    assert "Bookmark not found" in tui.status
+
+    tui.run_command("/bookmark nope")
+    assert "Usage: /bookmark" in tui.output.text
+
+    tui.operation_query = "definitely-not-real"
+    assert "No matching operations" in tui._operations_text()
+
+    get_variable_store().set("visible", 123)
+    assert "visible = 123" in tui._variables_text()
+    assert "Default directory" in tui._export_text()
+
+    tui.set_settings_section("behavior")
+    assert "history_limit" in tui._settings_text()
 
 
 def test_tui_settings_actions_update_config(tui):

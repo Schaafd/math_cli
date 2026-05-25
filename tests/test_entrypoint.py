@@ -23,6 +23,64 @@ def run_cli(argv):
         sys.argv = sys_argv_backup
 
 
+def test_main_interactive_routes_to_full_screen_app(monkeypatch):
+    called = {}
+
+    def fake_run(plugin_manager, operations_metadata):
+        called["full_screen"] = len(operations_metadata)
+
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    monkeypatch.setattr("cli.interactive_app.run_interactive_app", fake_run)
+
+    exit_code = run_cli(["math_cli.py", "--interactive"])
+
+    assert exit_code == 0
+    assert called["full_screen"] > 0
+
+
+def test_main_tui_alias_routes_to_full_screen_app(monkeypatch):
+    called = {}
+
+    def fake_run(plugin_manager, operations_metadata):
+        called["full_screen"] = len(operations_metadata)
+
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    monkeypatch.setattr("cli.interactive_app.run_interactive_app", fake_run)
+
+    exit_code = run_cli(["math_cli.py", "--tui"])
+
+    assert exit_code == 0
+    assert called["full_screen"] > 0
+
+
+def test_main_classic_interactive_routes_to_prompt_loop(monkeypatch):
+    called = {}
+
+    def fake_run(plugin_manager, operations_metadata, enable_colors, enable_animations, accessibility_settings):
+        called["classic"] = len(operations_metadata)
+
+    monkeypatch.setattr("cli.interactive_mode.run_interactive_mode", fake_run)
+
+    exit_code = run_cli(["math_cli.py", "--classic-interactive"])
+
+    assert exit_code == 0
+    assert called["classic"] > 0
+
+
+def test_main_full_screen_without_tty_suggests_classic_mode(monkeypatch, capsys):
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: False)
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: False)
+
+    exit_code = run_cli(["math_cli.py", "--interactive"])
+
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "requires an interactive terminal" in err
+    assert "--classic-interactive" in err
+
+
 def test_main_lists_plugins(capsys):
     exit_code = run_cli(["math_cli.py", "--list-plugins"])
     assert exit_code == 0

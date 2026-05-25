@@ -8,6 +8,21 @@ from prompt_toolkit.document import Document
 class MathOperationCompleter(Completer):
     """Custom completer for math operations with parameter hints."""
 
+    app_commands = {
+        '/help': 'Show help and shortcuts',
+        '/operations': 'Browse math operations',
+        '/history': 'Show or manage history',
+        '/settings': 'Open settings',
+        '/themes': 'Open theme settings',
+        '/sessions': 'Manage sessions',
+        '/session': 'Session actions',
+        '/bookmark': 'Bookmark actions',
+        '/export': 'Export history',
+        '/clear': 'Clear workspace',
+        '/quit': 'Exit interactive mode',
+        '/exit': 'Exit interactive mode',
+    }
+
     def __init__(self, operations_metadata: Dict, session_manager=None):
         """Initialize the completer with operations metadata.
 
@@ -19,10 +34,7 @@ class MathOperationCompleter(Completer):
         self.operation_names = sorted(operations_metadata.keys())
         self.session_manager = session_manager
 
-        # Create special commands list (including new vim-style commands)
-        self.special_commands = ['help', 'history', 'exit', 'quit', 'chain',
-                                'session', 'sessions', 's',
-                                ':s', ':sn', ':sp', ':sl']
+        self.special_commands = sorted(self.app_commands.keys())
 
     def get_completions(self, document: Document, complete_event) -> Iterable[Completion]:
         """Generate completions for the current input.
@@ -47,8 +59,19 @@ class MathOperationCompleter(Completer):
         # Get the current word being typed
         current_word = words[-1].lower()
 
-        # If this is the first word, suggest operations and special commands
+        # Slash commands are reserved for app/control actions.
         if len(words) == 1:
+            if current_word.startswith('/'):
+                for cmd, help_text in self.app_commands.items():
+                    if cmd.startswith(current_word):
+                        yield Completion(
+                            cmd,
+                            start_position=-len(current_word),
+                            display=cmd,
+                            display_meta=help_text
+                        )
+                return
+
             # Suggest operations
             for op_name in self.operation_names:
                 if op_name.lower().startswith(current_word):
@@ -68,27 +91,14 @@ class MathOperationCompleter(Completer):
                         display_meta=display_meta
                     )
 
-            # Suggest special commands
-            for cmd in self.special_commands:
-                if cmd.startswith(current_word):
-                    meta_text = self._get_special_command_help(cmd)
-                    yield Completion(
-                        cmd,
-                        start_position=-len(current_word),
-                        display=cmd,
-                        display_meta=meta_text
-                    )
-
         # For subsequent words, check for session name completion
         else:
             # Check if we're completing session names
             if self.session_manager and len(words) >= 2:
                 first_word = words[0].lower()
 
-                # Complete session names for: "session open <name>", "session delete <name>",
-                # "session rename <name>", "s <name>", ":s <name>"
-                if ((first_word == 'session' and len(words) >= 2 and words[1].lower() in ['open', 'delete']) or
-                    (first_word in ['s', ':s'] and len(words) == 2)):
+                # Complete session names for slash session actions.
+                if first_word == '/session' and len(words) >= 2 and words[1].lower() in ['open', 'delete']:
 
                     # Get all session names
                     session_names = self.session_manager.get_session_names()
@@ -130,18 +140,8 @@ class MathOperationCompleter(Completer):
             Help text for the command
         """
         help_texts = {
-            'help': 'Show available commands and help',
-            'history': 'Show or manage calculation history',
-            'exit': 'Exit interactive mode',
-            'quit': 'Exit interactive mode',
+            **self.app_commands,
             'chain': 'Execute chained calculations',
-            'session': 'Manage sessions',
-            'sessions': 'List all sessions',
-            's': 'Quick session switch',
-            ':s': 'Vim: switch to session',
-            ':sn': 'Vim: next session',
-            ':sp': 'Vim: previous session',
-            ':sl': 'Vim: list sessions'
         }
         return help_texts.get(command, '')
 

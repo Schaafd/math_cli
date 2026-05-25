@@ -50,7 +50,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         operation_parser.print_help()
         return 0
 
-    if global_args.interactive:
+    if global_args.interactive or global_args.full_screen_tui:
+        from cli.interactive_app import run_interactive_app
+
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            print(
+                "Error: Full-screen interactive mode requires an interactive terminal. "
+                "Use --classic-interactive for the prompt-loop mode.",
+                file=sys.stderr,
+            )
+            return 1
+
+        try:
+            run_interactive_app(plugin_manager, operations_metadata)
+        except RuntimeError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        return 0
+
+    if global_args.classic_interactive:
         from cli.interactive_mode import run_interactive_mode
 
         enable_colors = not global_args.no_color
@@ -68,20 +86,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             enable_animations,
             accessibility_settings,
         )
-        return 0
-
-    if global_args.full_screen_tui:
-        from cli.full_screen_tui import run_full_screen_tui
-
-        if not sys.stdin.isatty() or not sys.stdout.isatty():
-            print("Error: Full Screen TUI requires an interactive terminal.", file=sys.stderr)
-            return 1
-
-        try:
-            run_full_screen_tui(plugin_manager, operations_metadata)
-        except RuntimeError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            return 1
         return 0
 
     if not remaining_args:

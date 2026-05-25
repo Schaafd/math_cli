@@ -163,23 +163,33 @@ math "add 7 2 | multiply 4 | subtract 6"
 
 Use quotes around expressions so the shell does not treat characters like `*`
 or `|` as shell syntax. Assignment shortcuts are most useful in interactive
-mode or the Full Screen TUI, where the session stays alive.
+mode, where the session stays alive.
 
-### Full Screen TUI
+### Full-Screen Interactive App
 
 Launch the clickable full-screen terminal interface with:
 
 ```bash
+math --interactive
+# or
 math --full-screen-tui
 # or
 math --tui
 ```
 
-The Full Screen TUI uses the same command and expression rules as the iOS app:
+`--full-screen-tui` and `--tui` are compatibility aliases. Use
+`--classic-interactive` if you need the old prompt-loop mode.
+
+The full-screen app uses the same command and expression rules as the iOS app:
 command suggestions, pinned quick commands, session switching, history view,
 bookmarks, Markdown export, assignment shortcuts, `ans`/`$` previous-result
 references, and iOS-style pipe chains. Mouse support is enabled, so quick
-commands, session tabs, view buttons, bookmark, and export actions are clickable.
+commands, session tabs, and view buttons are clickable.
+
+App actions use slash commands: `/help`, `/operations`, `/history`,
+`/settings`, `/themes`, `/sessions`, `/session`, `/bookmark`, `/export`,
+`/clear`, and `/quit`. Math stays plain: `add 2 3`, `radius = 12`,
+`pi * radius ^ 2`, and `chain add 2 3 | multiply 4`.
 
 Useful shortcuts:
 
@@ -1066,12 +1076,18 @@ math export_session results.tex latex
 
 ## Interactive Mode
 
-Run Math CLI in interactive mode to perform multiple calculations in succession with beautiful visual enhancements:
+Run Math CLI in interactive mode to open the full-screen terminal app:
 
 ```bash
 math --interactive
 # or
 math -i
+```
+
+Use the old prompt-loop interface with:
+
+```bash
+math --classic-interactive
 ```
 
 ### Visual Enhancements (Phase 1)
@@ -1435,7 +1451,7 @@ class CylinderVolumeOperation(MathOperation):
 ## Command-Line Arguments
 
 ```
-usage: math [-h] [--interactive] [--full-screen-tui] [--plugin-dir PLUGIN_DIR]
+usage: math [-h] [--interactive] [--classic-interactive] [--full-screen-tui] [--plugin-dir PLUGIN_DIR]
             [--list-plugins] [--no-color] [--no-animations] ...
 
 Perform mathematical operations
@@ -1445,9 +1461,11 @@ positional arguments:
 
 options:
   -h, --help            Show this help message and exit
-  --interactive, -i     Run in interactive mode with visual enhancements
+  --interactive, -i     Run the full-screen interactive app
+  --classic-interactive
+                        Run the classic prompt-loop interactive mode
   --full-screen-tui, --tui
-                        Run the clickable full-screen terminal UI
+                        Compatibility alias for the full-screen interactive app
   --plugin-dir PLUGIN_DIR
                         Directory containing additional plugins
   --list-plugins        List available operation plugins
