@@ -13,13 +13,21 @@ DEFAULT_THEME_NAME = "dark-plus"
 
 
 DEFAULT_TUI_CONFIG: Dict[str, Any] = {
-    "config_version": 4,
+    "config_version": 5,
     "theme": DEFAULT_THEME_NAME,
     "show_footer": True,
+    "panel_gap": 1,
+    "header_height": 1,
+    "nav_height": 1,
+    "footer_height": 3,
     "session_tab_limit": 5,
     "side_panel_width": 44,
+    "side_panel_min_width": 36,
+    "side_panel_max_width": 72,
     "history_limit": 300,
     "export_directory": "~",
+    "show_shortcut_hints": True,
+    "focus_cycle": ["transcript", "nav", "panel", "input"],
     "quick_commands": ["add", "subtract", "multiply", "divide", "power"],
     "keybindings": {
         "quit": "escape q",
@@ -52,6 +60,12 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "muted": "#858585",
             "button": "#333333",
             "button_focus": "#094771",
+            "workspace": "#1e1e1e",
+            "gutter": "#1b1b1b",
+            "active_panel": "#2d2d30",
+            "inactive_panel": "#252526",
+            "nav": "#252526",
+            "nav_selected": "#094771",
         },
         "light-plus": {
             "description": "VS Code Light+ inspired clean light theme.",
@@ -67,6 +81,12 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "muted": "#616161",
             "button": "#e5e5e5",
             "button_focus": "#cce8ff",
+            "workspace": "#ffffff",
+            "gutter": "#f7f7f7",
+            "active_panel": "#e8f3ff",
+            "inactive_panel": "#f3f3f3",
+            "nav": "#f3f3f3",
+            "nav_selected": "#cce8ff",
         },
         "monokai": {
             "description": "Monokai-inspired high-energy dark theme.",
@@ -82,6 +102,12 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "muted": "#a59f85",
             "button": "#3e3d32",
             "button_focus": "#49483e",
+            "workspace": "#272822",
+            "gutter": "#22231e",
+            "active_panel": "#3e3d32",
+            "inactive_panel": "#2d2e27",
+            "nav": "#2d2e27",
+            "nav_selected": "#49483e",
         },
         "solarized-dark": {
             "description": "Solarized Dark inspired low-contrast theme.",
@@ -97,6 +123,12 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "muted": "#657b83",
             "button": "#073642",
             "button_focus": "#586e75",
+            "workspace": "#002b36",
+            "gutter": "#002631",
+            "active_panel": "#0b3a45",
+            "inactive_panel": "#073642",
+            "nav": "#073642",
+            "nav_selected": "#586e75",
         },
         "solarized-light": {
             "description": "Solarized Light inspired low-glare theme.",
@@ -112,6 +144,12 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "muted": "#657b83",
             "button": "#eee8d5",
             "button_focus": "#d7e8ed",
+            "workspace": "#fdf6e3",
+            "gutter": "#f7efd9",
+            "active_panel": "#e6dec6",
+            "inactive_panel": "#eee8d5",
+            "nav": "#eee8d5",
+            "nav_selected": "#d7e8ed",
         },
         "dracula": {
             "description": "Dracula-inspired purple dark theme.",
@@ -127,6 +165,12 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "muted": "#b7b7b2",
             "button": "#44475a",
             "button_focus": "#6272a4",
+            "workspace": "#282a36",
+            "gutter": "#242631",
+            "active_panel": "#44475a",
+            "inactive_panel": "#343746",
+            "nav": "#343746",
+            "nav_selected": "#6272a4",
         },
         "github-dark": {
             "description": "GitHub Dark inspired muted dark theme.",
@@ -142,6 +186,12 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "muted": "#8b949e",
             "button": "#21262d",
             "button_focus": "#1f6feb",
+            "workspace": "#0d1117",
+            "gutter": "#090c10",
+            "active_panel": "#21262d",
+            "inactive_panel": "#161b22",
+            "nav": "#161b22",
+            "nav_selected": "#1f6feb",
         },
         "one-dark-pro": {
             "description": "One Dark Pro inspired balanced dark theme.",
@@ -157,6 +207,12 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "muted": "#7f848e",
             "button": "#3a3f4b",
             "button_focus": "#528bff",
+            "workspace": "#282c34",
+            "gutter": "#242830",
+            "active_panel": "#353b45",
+            "inactive_panel": "#2f343d",
+            "nav": "#2f343d",
+            "nav_selected": "#528bff",
         },
         "nord": {
             "description": "Nord-inspired cool arctic theme.",
@@ -172,6 +228,12 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "muted": "#d8dee9",
             "button": "#434c5e",
             "button_focus": "#5e81ac",
+            "workspace": "#2e3440",
+            "gutter": "#29303b",
+            "active_panel": "#434c5e",
+            "inactive_panel": "#3b4252",
+            "nav": "#3b4252",
+            "nav_selected": "#5e81ac",
         },
         "tokyo-night": {
             "description": "Tokyo Night inspired deep blue theme.",
@@ -187,6 +249,12 @@ DEFAULT_TUI_CONFIG: Dict[str, Any] = {
             "muted": "#a9b1d6",
             "button": "#292e42",
             "button_focus": "#3d59a1",
+            "workspace": "#1a1b26",
+            "gutter": "#161720",
+            "active_panel": "#292e42",
+            "inactive_panel": "#24283b",
+            "nav": "#24283b",
+            "nav_selected": "#3d59a1",
         },
     },
 }
@@ -328,6 +396,16 @@ class TUIConfig:
                 configured_themes.pop(theme_name, None)
             if config.get("theme") in LEGACY_BUILT_IN_THEMES:
                 config["theme"] = DEFAULT_THEME_NAME
+
+        if config_version < 5:
+            config.setdefault("panel_gap", DEFAULT_TUI_CONFIG["panel_gap"])
+            config.setdefault("header_height", DEFAULT_TUI_CONFIG["header_height"])
+            config.setdefault("nav_height", DEFAULT_TUI_CONFIG["nav_height"])
+            config.setdefault("footer_height", DEFAULT_TUI_CONFIG["footer_height"])
+            config.setdefault("side_panel_min_width", DEFAULT_TUI_CONFIG["side_panel_min_width"])
+            config.setdefault("side_panel_max_width", DEFAULT_TUI_CONFIG["side_panel_max_width"])
+            config.setdefault("show_shortcut_hints", DEFAULT_TUI_CONFIG["show_shortcut_hints"])
+            config.setdefault("focus_cycle", DEFAULT_TUI_CONFIG["focus_cycle"])
 
         config["config_version"] = int(DEFAULT_TUI_CONFIG["config_version"])
         return config

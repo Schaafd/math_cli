@@ -160,6 +160,9 @@ class FullScreenInteractiveApp:
 
     def __init__(self, plugin_manager: Any, operations_metadata: Dict[str, Dict[str, Any]]) -> None:
         from prompt_toolkit.layout.dimension import Dimension
+        from prompt_toolkit.key_binding import KeyBindings
+        from prompt_toolkit.layout.containers import Window
+        from prompt_toolkit.layout.controls import FormattedTextControl
         from prompt_toolkit.widgets import Label, TextArea
 
         self.Button = TUIButton
@@ -192,7 +195,12 @@ class FullScreenInteractiveApp:
         self.menu_focus = "tabs"
         self.theme_index = 0
         self.layout_index = 0
-        self.status = f"Full-screen interactive ready. Config: {self.config.config_file}"
+        self.operation_index = 0
+        self.history_index = 0
+        self.session_index = 0
+        self.focus_area = "input"
+        self.focus_cycle = self._configured_focus_cycle()
+        self.status = "Ready"
         self.output_lines: List[str] = []
 
         self.output = TextArea(
@@ -214,11 +222,27 @@ class FullScreenInteractiveApp:
             focus_on_click=True,
             style="class:input",
         )
+        self.side_panel = TextArea(
+            text="",
+            read_only=True,
+            scrollbar=True,
+            focusable=True,
+            height=Dimension(weight=1),
+            wrap_lines=True,
+            focus_on_click=True,
+            style="class:side",
+        )
+        self.nav_control = FormattedTextControl(
+            self._nav_fragments,
+            focusable=True,
+        )
+        self.nav_window = Window(self.nav_control, height=1, style=self._nav_style)
 
         self._append_output("MathCLI Interactive")
-        self._append_output(f"Theme: {self.config.get('theme', DEFAULT_THEME_NAME)}  Config: {self.config.config_file}")
-        self._append_output("Examples: add 5 10 | multiply 3, radius = 12, pi * radius ^ 2")
-        self._append_output("App commands use slashes: /help, /operations, /history, /settings, /themes, /sessions")
+        self._append_output(f"Theme: {self.config.get('theme', DEFAULT_THEME_NAME)}  Config: {self.config.config_file.name}")
+        self._append_output("Try: add 5 10 | radius = 12 | pi * radius ^ 2")
+        self._append_output("Slash: /help /operations /history /settings")
+        self._update_panel_text()
 
     def run(self) -> None:
         from prompt_toolkit import Application
@@ -339,6 +363,7 @@ class FullScreenInteractiveApp:
         self.config = TUIConfig(self.config.config_file)
         self.theme = self.config.theme()
         self.quick_commands = self.config.quick_commands(self.operations_metadata)
+        self.focus_cycle = self._configured_focus_cycle()
         self.theme_index = self._active_theme_index()
         self._replace_theme_line()
         self.status = "Reloaded TUI config"
@@ -488,6 +513,7 @@ class FullScreenInteractiveApp:
 
     def _slash_help(self, args: List[str]) -> None:
         self.view = "help"
+        self.menu_index = self.menu_items.index("help")
         query = " ".join(args).strip()
         self.status = f"Help: {query}" if query else "Showing help"
         if query:
@@ -495,12 +521,15 @@ class FullScreenInteractiveApp:
 
     def _slash_operations(self, args: List[str]) -> None:
         self.view = "operations"
+        self.menu_index = self.menu_items.index("operations")
         self.operation_query = " ".join(args).strip().lower()
+        self.operation_index = 0
         self.status = f"Operations matching {self.operation_query}" if self.operation_query else "Showing operations"
 
     def _slash_history(self, args: List[str]) -> None:
         if not args:
             self.view = "history"
+            self.menu_index = self.menu_items.index("history")
             self.status = "Showing history"
             return
         if args[0].lower() == "clear":
@@ -528,6 +557,7 @@ class FullScreenInteractiveApp:
 
     def _slash_sessions(self, args: List[str]) -> None:
         self.view = "sessions"
+        self.menu_index = self.menu_items.index("sessions")
         self.status = "Showing sessions"
 
     def _slash_session(self, args: List[str]) -> None:
@@ -628,81 +658,98 @@ class FullScreenInteractiveApp:
             pass
 
     def _build_layout(self) -> Any:
-        from prompt_toolkit.layout.containers import ConditionalContainer, DynamicContainer, HSplit, VSplit, Window
-        from prompt_toolkit.layout.dimension import Dimension
+        from prompt_toolkit.layout.containers import ConditionalContainer, DynamicContainer, HSplit
         from prompt_toolkit.filters import Condition
 
         header = DynamicContainer(self._build_header)
-
-        body = DynamicContainer(self._build_body)
-
-        footer_container = ConditionalContainer(
-            DynamicContainer(self._build_footer),
+        nav = DynamicContainer(self._build_nav)
+        workspace = DynamicContainer(self._build_workspace)
+        command_bar = ConditionalContainer(
+            DynamicContainer(self._build_command_bar),
             filter=Condition(lambda: bool(self.config.get("show_footer", True))),
         )
 
-        return HSplit([header, body, footer_container])
+        return HSplit([header, nav, workspace, command_bar], style="class:workspace")
 
     def _build_header(self) -> Any:
-        from prompt_toolkit.layout.containers import HSplit
-
-        if self.view == "settings":
-            return self.Label(
-                lambda: f" MathCLI  |  {self.status}  |  arrows/tab navigate  enter select  escape o ops  escape q exit",
-                style="class:header",
-            )
-
-        return HSplit(
-            [
-                self.Label(lambda: f" MathCLI  |  {self._current_session_label()}"),
-                self.Label(lambda: f" {self.status}"),
-                self._build_session_bar(),
-            ],
+        return self.Label(
+            self._header_text,
             style="class:header",
         )
 
-    def _build_body(self) -> Any:
-        from prompt_toolkit.layout.containers import VSplit
+    def _build_nav(self) -> Any:
+        self.nav_window.height = max(1, int(self.config.get("nav_height", 1)))
+        return self.nav_window
+
+    def _nav_style(self) -> str:
+        return "class:nav.focused" if self.focus_area == "nav" else "class:nav"
+
+    def _nav_fragments(self) -> Any:
+        from prompt_toolkit.mouse_events import MouseEventType
+
+        fragments: List[Any] = []
+        for index, view in enumerate(self.menu_items):
+            selected = self.view == view or (view == "settings" and self.view == "settings")
+            focused = self.focus_area == "nav" and self.menu_index == index
+            style = "class:nav.item.selected" if selected or focused else "class:nav.item"
+            label = f" {view.title()} "
+
+            def mouse_handler(mouse_event: Any, selected_view: str = view, selected_index: int = index) -> None:
+                if mouse_event.event_type in {MouseEventType.MOUSE_MOVE, MouseEventType.MOUSE_DOWN}:
+                    self.menu_index = selected_index
+                    self.focus_area = "nav"
+                    self._focus_nav()
+                if mouse_event.event_type == MouseEventType.MOUSE_UP:
+                    self.set_view(selected_view)
+
+            fragments.append((style, label, mouse_handler))
+            fragments.append(("class:nav.spacer", " "))
+        fragments.append(("class:nav", " "))
+        return fragments
+
+    def _build_workspace(self) -> Any:
+        from prompt_toolkit.layout.containers import VSplit, Window
 
         if self.view == "settings":
             return self._build_settings_panel(full_width=True)
 
+        gap = max(1, int(self.config.get("panel_gap", 1)))
         return VSplit(
             [
-                self._panel(self.output, "Calculator", style="class:panel.output"),
+                self._panel(self.output, "Transcript", style=self._panel_style("panel.output")),
+                Window(width=gap, char=" ", style="class:gutter"),
                 self._build_side_panel(),
-            ]
+            ],
+            style="class:workspace",
         )
 
-    def _build_footer(self) -> Any:
+    def _build_body(self) -> Any:
+        return self._build_workspace()
+
+    def _build_command_bar(self) -> Any:
         from prompt_toolkit.layout.containers import HSplit, VSplit, Window
         from prompt_toolkit.layout.dimension import Dimension
 
-        quick_bar = VSplit(
+        input_row = self.input
+        quick_row = VSplit(
             [
                 *[
                     self.Button(command, handler=lambda cmd=command: self.insert_command(cmd), width=12)
                     for command in self.quick_commands
                 ],
-                self.Button("Operations", handler=lambda: self.set_view("operations"), width=12, selected=lambda: self.view == "operations"),
-                self.Button("History", handler=lambda: self.set_view("history"), width=10, selected=lambda: self.view == "history"),
-                self.Button("Sessions", handler=lambda: self.set_view("sessions"), width=11, selected=lambda: self.view == "sessions"),
-                self.Button("Variables", handler=lambda: self.set_view("variables"), width=12, selected=lambda: self.view == "variables"),
-                self.Button("Settings", handler=lambda: self.set_view("settings"), width=11, selected=lambda: self.view == "settings"),
-                self.Button("Help", handler=lambda: self.set_view("help"), width=8, selected=lambda: self.view == "help"),
-                self.Button("Export", handler=lambda: self.set_view("export"), width=10, selected=lambda: self.view == "export"),
-                Window(width=Dimension(weight=1)),
-            ]
-        )
-
-        return HSplit(
-            [
-                quick_bar,
-                self._panel(self.input, "Input", style="class:panel.input"),
-                self.Label(lambda: f" {self._shortcut_help()}"),
+                Window(width=Dimension(weight=1), style="class:footer"),
             ],
+            height=1,
             style="class:footer",
         )
+
+        children: List[Any] = [input_row, quick_row]
+        if bool(self.config.get("show_shortcut_hints", True)):
+            children.append(self.Label(lambda: f" {self._shortcut_help()}", style="class:footer.hint"))
+        return HSplit(children, height=max(1, int(self.config.get("footer_height", 3))), style="class:footer")
+
+    def _build_footer(self) -> Any:
+        return self._build_command_bar()
 
     def _panel(self, content: Any, title: str, style: str, width: Any | None = None) -> Any:
         from prompt_toolkit.layout.containers import HSplit
@@ -715,6 +762,14 @@ class FullScreenInteractiveApp:
             style=style,
             width=width,
         )
+
+    def _panel_style(self, base_style: str) -> str:
+        focused = {
+            "panel.output": self.focus_area == "transcript",
+            "panel.side": self.focus_area == "panel",
+        }.get(base_style, False)
+        class_name = f"{base_style}.focused" if focused else base_style
+        return f"class:{class_name}"
 
     def _build_session_bar(self) -> Any:
         from prompt_toolkit.layout.containers import VSplit, Window
@@ -741,20 +796,31 @@ class FullScreenInteractiveApp:
         if self.view == "settings":
             return self._build_settings_panel()
 
+        title = self.view.title()
+        return self._panel(
+            self.side_panel,
+            title,
+            style=self._panel_style("panel.side"),
+            width=self._side_panel_dimension(),
+        )
+
+    def _side_panel_dimension(self) -> Any:
+        import shutil
         from prompt_toolkit.layout.dimension import Dimension
 
-        title = self.view.title()
-        text = self._side_panel_text()
-        area = self._read_only_text(
-            text,
-            width=Dimension(preferred=max(30, int(self.config.get("side_panel_width", 44)) - 4)),
-        )
-        return self._panel(
-            area,
-            title,
-            style="class:panel.side",
-            width=Dimension(preferred=max(34, int(self.config.get("side_panel_width", 44)))),
-        )
+        min_width = int(self.config.get("side_panel_min_width", 36))
+        max_width = int(self.config.get("side_panel_max_width", 72))
+        preferred_width = max(min_width, min(max_width, int(self.config.get("side_panel_width", 44))))
+        columns = shutil.get_terminal_size((120, 30)).columns
+        if columns < 90:
+            min_width = min(min_width, 32)
+            preferred_width = min(preferred_width, 34)
+            max_width = min(max_width, 38)
+        elif columns < 110:
+            min_width = min(min_width, 34)
+            preferred_width = min(preferred_width, 38)
+            max_width = min(max_width, 44)
+        return Dimension(min=min_width, preferred=preferred_width, max=max_width)
 
     def _side_panel_text(self) -> str:
         if self.view == "history":
@@ -771,14 +837,28 @@ class FullScreenInteractiveApp:
             return self._export_text()
         return self._operations_text()
 
+    def _update_panel_text(self) -> None:
+        if not hasattr(self, "side_panel"):
+            return
+        text = self._side_panel_text()
+        if self.side_panel.text != text:
+            previous_position = self.side_panel.buffer.cursor_position
+            self.side_panel.text = text
+            self.side_panel.buffer.cursor_position = min(previous_position, len(text))
+
+    def _configured_focus_cycle(self) -> List[str]:
+        configured = self.config.get("focus_cycle", ["transcript", "nav", "panel", "input"])
+        valid = {"transcript", "nav", "panel", "input"}
+        if not isinstance(configured, list):
+            return ["transcript", "nav", "panel", "input"]
+        focus_cycle = [str(item) for item in configured if str(item) in valid]
+        return focus_cycle or ["transcript", "nav", "panel", "input"]
+
     def _build_settings_panel(self, full_width: bool = False) -> Any:
         from prompt_toolkit.layout.containers import HSplit, VSplit, Window
         from prompt_toolkit.layout.dimension import Dimension
 
-        body = self._read_only_text(
-            self._settings_text(),
-            width=Dimension(preferred=max(30, int(self.config.get("side_panel_width", 44)) - 4)),
-        )
+        body = self.side_panel
 
         root_buttons = VSplit(
             [
@@ -788,24 +868,28 @@ class FullScreenInteractiveApp:
                     width=11,
                     selected=lambda: self._settings_tab_selected("themes"),
                 ),
+                Window(width=1, char=" ", style="class:gutter"),
                 self.Button(
                     "Layout",
                     handler=lambda: self.set_settings_section("layout"),
                     width=10,
                     selected=lambda: self._settings_tab_selected("layout"),
                 ),
+                Window(width=1, char=" ", style="class:gutter"),
                 self.Button(
                     "Keys",
                     handler=lambda: self.set_settings_section("shortcuts"),
                     width=8,
                     selected=lambda: self._settings_tab_selected("shortcuts"),
                 ),
+                Window(width=1, char=" ", style="class:gutter"),
                 self.Button(
                     "Behavior",
                     handler=lambda: self.set_settings_section("behavior"),
                     width=12,
                     selected=lambda: self._settings_tab_selected("behavior"),
                 ),
+                Window(width=1, char=" ", style="class:gutter"),
                 self.Button(
                     "About",
                     handler=lambda: self.set_settings_section("about"),
@@ -856,15 +940,17 @@ class FullScreenInteractiveApp:
         theme_names = self._menu_theme_names()
         for index in range(0, len(theme_names), 2):
             row_names = theme_names[index:index + 2]
-            buttons = [
-                self.Button(
-                    theme_name,
-                    handler=lambda name=theme_name: self.apply_theme(name),
-                    width=max(10, min(16, len(theme_name) + 4)),
-                    selected=lambda item_index=index + offset: self._theme_selected(item_index),
+            buttons = []
+            for offset, theme_name in enumerate(row_names):
+                buttons.append(
+                    self.Button(
+                        theme_name,
+                        handler=lambda name=theme_name: self.apply_theme(name),
+                        width=max(14, min(20, len(theme_name) + 4)),
+                        selected=lambda item_index=index + offset: self._theme_selected(item_index),
+                    )
                 )
-                for offset, theme_name in enumerate(row_names)
-            ]
+                buttons.append(Window(width=1, char=" ", style="class:gutter"))
             buttons.append(Window(width=Dimension(weight=1)))
             rows.append(VSplit(buttons, height=1))
         return HSplit(rows)
@@ -920,13 +1006,17 @@ class FullScreenInteractiveApp:
 
     def _layout_actions(self) -> List[tuple[str, Callable[[], None], int]]:
         width = int(self.config.get("side_panel_width", 44))
+        gap = int(self.config.get("panel_gap", 1))
         tabs = int(self.config.get("session_tab_limit", 5))
+        min_width = int(self.config.get("side_panel_min_width", 36))
+        max_width = int(self.config.get("side_panel_max_width", 72))
         return [
-            ("Width -", lambda: self.update_tui_setting("side_panel_width", max(34, width - 4)), 10),
-            ("Width +", lambda: self.update_tui_setting("side_panel_width", min(72, width + 4)), 10),
-            ("Tabs -", lambda: self.update_tui_setting("session_tab_limit", max(1, tabs - 1)), 9),
-            ("Tabs +", lambda: self.update_tui_setting("session_tab_limit", min(10, tabs + 1)), 9),
+            ("Width -", lambda: self.update_tui_setting("side_panel_width", max(min_width, width - 4)), 10),
+            ("Width +", lambda: self.update_tui_setting("side_panel_width", min(max_width, width + 4)), 10),
+            ("Gap -", lambda: self.update_tui_setting("panel_gap", max(1, gap - 1)), 8),
+            ("Gap +", lambda: self.update_tui_setting("panel_gap", min(4, gap + 1)), 8),
             ("Footer", lambda: self.update_tui_setting("show_footer", not bool(self.config.get("show_footer", True))), 9),
+            ("Hints", lambda: self.update_tui_setting("show_shortcut_hints", not bool(self.config.get("show_shortcut_hints", True))), 8),
         ]
 
     def _settings_tab_selected(self, tab: str) -> bool:
@@ -1010,6 +1100,71 @@ class FullScreenInteractiveApp:
         self.status = f"Selected {self.menu_items[self.menu_index]}"
         self._refresh()
 
+    def move_panel_selection(self, direction: str) -> None:
+        if self.view == "operations":
+            operations = self._operation_names_for_view()
+            if operations:
+                delta = -1 if direction in {"up", "left"} else 1
+                self.operation_index = (self.operation_index + delta) % len(operations)
+                self.status = f"Selected operation {operations[self.operation_index]}"
+                self._refresh()
+            return
+
+        if self.view == "history":
+            entries = self.history.get_all_entries()
+            if entries:
+                delta = -1 if direction in {"up", "left"} else 1
+                self.history_index = (self.history_index + delta) % len(entries)
+                self.status = f"Selected history entry {self.history_index + 1}"
+                self._refresh()
+            return
+
+        if self.view == "sessions":
+            sessions = self.session_manager.list_sessions()
+            if sessions:
+                delta = -1 if direction in {"up", "left"} else 1
+                self.session_index = (self.session_index + delta) % len(sessions)
+                self.status = f"Selected session {sessions[self.session_index]['name']}"
+                self._refresh()
+
+    def activate_panel_selection(self) -> None:
+        if self.view == "operations":
+            operation = self._selected_operation_name()
+            if operation:
+                self.insert_command(operation)
+                self.status = f"Inserted {operation}"
+            return
+
+        if self.view == "history":
+            entry = self.history.get_entry(self.history_index)
+            if entry:
+                self.insert_command(str(entry["command"]))
+                self.status = f"Inserted history entry {self.history_index + 1}"
+                self._refresh()
+            return
+
+        if self.view == "sessions":
+            sessions = self.session_manager.list_sessions()
+            if sessions:
+                self.open_session(sessions[self.session_index]["id"])
+
+    def _operation_names_for_view(self) -> List[str]:
+        names = []
+        for name, metadata in sorted(self.operations_metadata.items()):
+            if self.operation_query:
+                haystack = f"{name} {metadata.get('help', '')} {metadata.get('category', '')}".lower()
+                if self.operation_query not in haystack:
+                    continue
+            names.append(name)
+        return names
+
+    def _selected_operation_name(self) -> str | None:
+        names = self._operation_names_for_view()
+        if not names:
+            return None
+        self.operation_index = min(self.operation_index, len(names) - 1)
+        return names[self.operation_index]
+
     def _move_grid_index(self, index: int, count: int, columns: int, direction: str) -> int:
         if count <= 0:
             return 0
@@ -1025,11 +1180,10 @@ class FullScreenInteractiveApp:
 
     def _operations_text(self) -> str:
         grouped: Dict[str, List[str]] = {}
-        for name, metadata in sorted(self.operations_metadata.items()):
-            if self.operation_query:
-                haystack = f"{name} {metadata.get('help', '')} {metadata.get('category', '')}".lower()
-                if self.operation_query not in haystack:
-                    continue
+        operation_names = self._operation_names_for_view()
+        selected_name = self._selected_operation_name()
+        for name in operation_names:
+            metadata = self.operations_metadata[name]
             category = metadata.get("category") or "Other"
             grouped.setdefault(str(category).title(), []).append(name)
 
@@ -1043,11 +1197,14 @@ class FullScreenInteractiveApp:
         for category, names in sorted(grouped.items()):
             lines.append(category)
             lines.append("-" * len(category))
-            for name in names[:18]:
+            for name in names:
                 usage = " ".join(f"<{arg}>" for arg in self.operations_metadata[name].get("args", []))
-                lines.append(f"{name} {usage}".rstrip())
-            if len(names) > 18:
-                lines.append(f"... {len(names) - 18} more")
+                marker = ">" if name == selected_name else " "
+                lines.append(f"{marker} {name} {usage}".rstrip())
+                if name == selected_name:
+                    help_text = self.operations_metadata[name].get("help", "")
+                    if help_text:
+                        lines.append(f"  {help_text}")
             lines.append("")
         return "\n".join(lines)
 
@@ -1055,9 +1212,11 @@ class FullScreenInteractiveApp:
         entries = self.history.get_all_entries()
         if not entries:
             return "No history in this TUI session yet."
-        lines = ["History", ""]
+        self.history_index = min(self.history_index, len(entries) - 1)
+        lines = ["History", "", "Enter inserts the selected command. /history clear clears history.", ""]
         for index, entry in enumerate(entries[:30], start=1):
-            lines.append(f"{index}. {entry['command']}")
+            marker = ">" if index - 1 == self.history_index else " "
+            lines.append(f"{marker} {index}. {entry['command']}")
             lines.append(f"   = {entry['result']}")
         return "\n".join(lines)
 
@@ -1065,10 +1224,12 @@ class FullScreenInteractiveApp:
         sessions = self.session_manager.list_sessions()
         if not sessions:
             return "No saved sessions yet.\n\nUse /session new <name> to create one."
+        self.session_index = min(self.session_index, len(sessions) - 1)
         lines = ["Sessions", "", "Use /session new, /session open, /session next, /session prev, /session rename, or /session delete.", ""]
-        for session in sessions:
-            marker = "*" if session["is_active"] else " "
-            lines.append(f"{marker} {session['name']}  ({session['command_count']} commands)")
+        for index, session in enumerate(sessions):
+            active_marker = "*" if session["is_active"] else " "
+            selected_marker = ">" if index == self.session_index else " "
+            lines.append(f"{selected_marker}{active_marker} {session['name']}  ({session['command_count']} commands)")
             lines.append(f"   id: {session['id']}")
         return "\n".join(lines)
 
@@ -1159,6 +1320,12 @@ class FullScreenInteractiveApp:
                     "Layout",
                     "",
                     f"side_panel_width: {self.config.get('side_panel_width')}",
+                    f"side_panel_min_width: {self.config.get('side_panel_min_width')}",
+                    f"side_panel_max_width: {self.config.get('side_panel_max_width')}",
+                    f"panel_gap: {self.config.get('panel_gap')}",
+                    f"header_height: {self.config.get('header_height')}",
+                    f"nav_height: {self.config.get('nav_height')}",
+                    f"footer_height: {self.config.get('footer_height')}",
                     f"session_tab_limit: {self.config.get('session_tab_limit')}",
                     f"show_footer: {self.config.get('show_footer')}",
                     "",
@@ -1190,6 +1357,8 @@ class FullScreenInteractiveApp:
                     f"history_limit: {self.config.get('history_limit')}",
                     f"export_directory: {self.config.get('export_directory')}",
                     f"show_footer: {self.config.get('show_footer')}",
+                    f"show_shortcut_hints: {self.config.get('show_shortcut_hints')}",
+                    f"focus_cycle: {', '.join(self.focus_cycle)}",
                     "",
                     "Edit tui.json directly for advanced behavior changes.",
                     f"Config: {self.config.config_file}",
@@ -1223,7 +1392,9 @@ class FullScreenInteractiveApp:
         from prompt_toolkit.key_binding import KeyBindings
 
         kb = KeyBindings()
-        settings_menu = Condition(lambda: self.view == "settings" and not get_app().layout.has_focus(self.input))
+        settings_menu = Condition(lambda: self.view == "settings" and self.focus_area == "panel")
+        nav_focus = Condition(lambda: self.focus_area == "nav")
+        panel_focus = Condition(lambda: self.focus_area == "panel")
 
         self._bind(kb, "quit", lambda event: event.app.exit())
         self._bind(kb, "clear_screen", lambda event: event.app.renderer.clear())
@@ -1238,7 +1409,27 @@ class FullScreenInteractiveApp:
         self._bind(kb, "export", lambda event: self.export_markdown())
         self._bind(kb, "run", lambda event: self.submit_input())
         self._bind(kb, "clear_input", lambda event: self._clear_input())
-        self._bind(kb, "focus_input", lambda event: get_app().layout.focus(self.input))
+        self._bind(kb, "focus_input", lambda event: self._focus_input())
+
+        @kb.add("tab", eager=True)
+        def _(event: Any) -> None:
+            self.focus_next_area()
+
+        @kb.add("s-tab", eager=True)
+        def _(event: Any) -> None:
+            self.focus_next_area(reverse=True)
+
+        @kb.add("left", filter=nav_focus, eager=True)
+        def _(event: Any) -> None:
+            self.move_top_menu_selection("left")
+
+        @kb.add("right", filter=nav_focus, eager=True)
+        def _(event: Any) -> None:
+            self.move_top_menu_selection("right")
+
+        @kb.add("enter", filter=nav_focus, eager=True)
+        def _(event: Any) -> None:
+            self.activate_menu_selection()
 
         @kb.add("left", filter=settings_menu, eager=True)
         def _(event: Any) -> None:
@@ -1248,25 +1439,26 @@ class FullScreenInteractiveApp:
         def _(event: Any) -> None:
             self.move_menu_selection("right")
 
-        @kb.add("up", filter=settings_menu, eager=True)
+        @kb.add("up", filter=panel_focus, eager=True)
         def _(event: Any) -> None:
-            self.move_menu_selection("up")
+            if self.view == "settings":
+                self.move_menu_selection("up")
+            else:
+                self.move_panel_selection("up")
 
-        @kb.add("down", filter=settings_menu, eager=True)
+        @kb.add("down", filter=panel_focus, eager=True)
         def _(event: Any) -> None:
-            self.move_menu_selection("down")
+            if self.view == "settings":
+                self.move_menu_selection("down")
+            else:
+                self.move_panel_selection("down")
 
-        @kb.add("tab", filter=settings_menu, eager=True)
+        @kb.add("enter", filter=panel_focus, eager=True)
         def _(event: Any) -> None:
-            self.move_menu_selection("right")
-
-        @kb.add("s-tab", filter=settings_menu, eager=True)
-        def _(event: Any) -> None:
-            self.move_menu_selection("left")
-
-        @kb.add("enter", filter=settings_menu, eager=True)
-        def _(event: Any) -> None:
-            self.activate_menu_selection()
+            if self.view == "settings":
+                self.activate_menu_selection()
+            else:
+                self.activate_panel_selection()
 
         return kb
 
@@ -1289,16 +1481,28 @@ class FullScreenInteractiveApp:
                 "": f"bg:{theme['background']} {theme['text']}",
                 "header": f"bg:{theme['panel_alt']} {theme['text']} bold",
                 "footer": f"bg:{theme['background']} {theme['muted']}",
+                "footer.hint": f"bg:{theme['background']} {theme['muted']}",
                 "toolbar": f"bg:{theme['panel']} {theme['text']}",
-                "panel.output": f"bg:{theme['panel']} {theme['text']}",
-                "panel.output.title": f"bg:{theme['panel']} {theme['accent']} bold",
-                "panel.side": f"bg:{theme['panel_alt']} {theme['text']}",
-                "panel.side.title": f"bg:{theme['panel_alt']} {theme['accent']} bold",
+                "workspace": f"bg:{theme['workspace']} {theme['text']}",
+                "gutter": f"bg:{theme['gutter']} {theme['muted']}",
+                "nav": f"bg:{theme['nav']} {theme['text']}",
+                "nav.focused": f"bg:{theme['nav']} {theme['accent']} bold",
+                "nav.item": f"bg:{theme['nav']} {theme['text']}",
+                "nav.item.selected": f"bg:{theme['nav_selected']} {theme['text']} bold",
+                "nav.spacer": f"bg:{theme['nav']} {theme['muted']}",
+                "panel.output": f"bg:{theme['inactive_panel']} {theme['text']}",
+                "panel.output.focused": f"bg:{theme['active_panel']} {theme['text']}",
+                "panel.output.title": f"bg:{theme['inactive_panel']} {theme['accent']} bold",
+                "panel.output.focused.title": f"bg:{theme['active_panel']} {theme['accent']} bold",
+                "panel.side": f"bg:{theme['inactive_panel']} {theme['text']}",
+                "panel.side.focused": f"bg:{theme['active_panel']} {theme['text']}",
+                "panel.side.title": f"bg:{theme['inactive_panel']} {theme['accent']} bold",
+                "panel.side.focused.title": f"bg:{theme['active_panel']} {theme['accent']} bold",
                 "panel.input": f"bg:{theme['button']} {theme['text']}",
                 "panel.input.title": f"bg:{theme['button']} {theme['accent_alt']} bold",
-                "output": f"bg:{theme['panel']} {theme['text']}",
+                "output": f"bg:{theme['inactive_panel']} {theme['text']}",
                 "input": f"bg:{theme['button']} {theme['text']}",
-                "side": f"bg:{theme['panel_alt']} {theme['muted']}",
+                "side": f"bg:{theme['inactive_panel']} {theme['muted']}",
                 "button": f"bg:{theme['button']} {theme['text']}",
                 "button.focused": f"bg:{theme['button_focus']} {theme['text']} bold",
                 "button.selected": f"bg:{theme['button_focus']} {theme['text']} bold",
@@ -1315,7 +1519,7 @@ class FullScreenInteractiveApp:
         self.output.buffer.cursor_position = len(self.output.text)
 
     def _replace_theme_line(self) -> None:
-        replacement = f"Theme: {self.config.get('theme', DEFAULT_THEME_NAME)}  Config: {self.config.config_file}"
+        replacement = f"Theme: {self.config.get('theme', DEFAULT_THEME_NAME)}  Config: {self.config.config_file.name}"
         for index, line in enumerate(self.output_lines):
             if line.startswith("Theme: "):
                 self.output_lines[index] = replacement
@@ -1329,7 +1533,63 @@ class FullScreenInteractiveApp:
             return "No session"
         return f"{info['name']} ({info['command_count']} commands)"
 
+    def _header_text(self) -> str:
+        return f" MathCLI  |  {self._ellipsize(self._current_session_label(), 32)}  |  {self._ellipsize(self.status, 32)}"
+
+    def _ellipsize(self, text: str, max_length: int) -> str:
+        if len(text) <= max_length:
+            return text
+        return f"{text[: max(0, max_length - 3)]}..."
+
+    def focus_next_area(self, reverse: bool = False) -> None:
+        if self.focus_area not in self.focus_cycle:
+            self.focus_area = "input"
+        current_index = self.focus_cycle.index(self.focus_area)
+        next_index = current_index - 1 if reverse else current_index + 1
+        self.focus_area = self.focus_cycle[next_index % len(self.focus_cycle)]
+        self._apply_focus_area()
+
+    def _apply_focus_area(self) -> None:
+        if self.focus_area == "transcript":
+            self._focus_transcript()
+        elif self.focus_area == "nav":
+            self._focus_nav()
+        elif self.focus_area == "panel":
+            self._focus_panel()
+        else:
+            self._focus_input()
+        self.status = f"Focus: {self.focus_area}"
+        self._refresh()
+
+    def _focus_transcript(self) -> None:
+        self.focus_area = "transcript"
+        try:
+            from prompt_toolkit.application import get_app
+
+            get_app().layout.focus(self.output)
+        except Exception:
+            pass
+
+    def _focus_panel(self) -> None:
+        self.focus_area = "panel"
+        try:
+            from prompt_toolkit.application import get_app
+
+            get_app().layout.focus(self.side_panel)
+        except Exception:
+            pass
+
+    def _focus_nav(self) -> None:
+        self.focus_area = "nav"
+        try:
+            from prompt_toolkit.application import get_app
+
+            get_app().layout.focus(self.nav_window)
+        except Exception:
+            pass
+
     def _focus_input(self) -> None:
+        self.focus_area = "input"
         try:
             from prompt_toolkit.application import get_app
 
@@ -1338,6 +1598,7 @@ class FullScreenInteractiveApp:
             pass
 
     def _refresh(self, clear: bool = False) -> None:
+        self._update_panel_text()
         try:
             from prompt_toolkit.application import get_app
 
@@ -1354,13 +1615,10 @@ class FullScreenInteractiveApp:
 
     def _shortcut_help(self) -> str:
         return (
-            f"{self.config.keybinding('run')} run  "
-            f"{self.config.keybinding('new_session')} new  "
-            f"{self.config.keybinding('previous_session')}/{self.config.keybinding('next_session')} sessions  "
+            "tab focus  arrows move  enter select  "
+            f"{self.config.keybinding('focus_input')} input  "
             f"{self.config.keybinding('operations')} ops  "
             f"{self.config.keybinding('history')} history  "
-            f"{self.config.keybinding('settings')} settings  "
-            f"{self.config.keybinding('themes')} themes  "
             f"{self.config.keybinding('quit')} exit"
         )
 

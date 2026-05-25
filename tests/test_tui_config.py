@@ -10,10 +10,17 @@ def test_tui_config_creates_editable_default_file(tmp_path):
 
     assert config_path.exists()
     data = json.loads(config_path.read_text())
-    assert data["config_version"] == 4
+    assert data["config_version"] == 5
     assert data["theme"] == "dark-plus"
     assert data["keybindings"]["history"] == "escape h"
+    assert data["panel_gap"] == 1
+    assert data["side_panel_min_width"] == 36
+    assert data["side_panel_max_width"] == 72
+    assert data["show_shortcut_hints"] is True
+    assert data["focus_cycle"] == ["transcript", "nav", "panel", "input"]
     assert len(data["themes"]) == 10
+    assert data["themes"]["dark-plus"]["workspace"] == "#1e1e1e"
+    assert data["themes"]["dark-plus"]["nav_selected"] == "#094771"
     assert config.keybinding("history") == "escape h"
 
 
@@ -65,7 +72,9 @@ def test_tui_config_migrates_legacy_function_key_defaults(tmp_path):
     assert config.keybinding("run") == "escape enter"
     assert config.keybinding("history") == "escape h"
     assert config.keybinding("settings") == "escape s"
-    assert json.loads(config_path.read_text())["config_version"] == 4
+    data = json.loads(config_path.read_text())
+    assert data["config_version"] == 5
+    assert data["panel_gap"] == 1
 
 
 def test_tui_config_migrates_v2_to_include_new_theme_set(tmp_path):
@@ -103,9 +112,10 @@ def test_tui_config_migrates_v2_to_include_new_theme_set(tmp_path):
     config = TUIConfig(config_path)
     data = json.loads(config_path.read_text())
 
-    assert data["config_version"] == 4
+    assert data["config_version"] == 5
     assert "tokyo-night" in config.get("themes")
     assert "custom" in config.get("themes")
+    assert data["focus_cycle"] == ["transcript", "nav", "panel", "input"]
 
 
 def test_tui_config_migrates_v3_to_curated_theme_set(tmp_path):
@@ -128,7 +138,7 @@ def test_tui_config_migrates_v3_to_curated_theme_set(tmp_path):
     config = TUIConfig(config_path)
     data = json.loads(config_path.read_text())
 
-    assert data["config_version"] == 4
+    assert data["config_version"] == 5
     assert data["theme"] == "dark-plus"
     assert "midnight" not in data["themes"]
     assert "ember" not in data["themes"]

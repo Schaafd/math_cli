@@ -23,14 +23,18 @@ def tui(tmp_path, monkeypatch):
 
 def test_tui_builds_layout_keybindings_and_style(tui):
     assert type(tui._build_layout()).__name__ == "HSplit"
-    assert type(tui._build_header()).__name__ == "HSplit"
+    assert type(tui._build_header()).__name__ == "Label"
+    assert type(tui._build_nav()).__name__ == "Window"
     assert type(tui._build_body()).__name__ == "VSplit"
+    assert type(tui._build_workspace()).__name__ == "VSplit"
+    assert type(tui._build_command_bar()).__name__ == "HSplit"
     assert type(tui._build_footer()).__name__ == "HSplit"
     assert type(tui._build_session_bar()).__name__ == "VSplit"
     assert type(tui._build_side_panel()).__name__ == "HSplit"
     assert type(tui._create_key_bindings()).__name__ == "KeyBindings"
     assert tui._style() is not None
     assert tui.config.config_file.exists()
+    assert bool(tui.side_panel.control.focusable()) is True
 
     tui.set_view("settings")
     assert type(tui._build_header()).__name__ == "Label"
@@ -132,6 +136,7 @@ def test_tui_buttons_render_without_angle_brackets(tui):
 
 def test_tui_keyboard_menu_navigation_and_activation(tui):
     tui.set_view("operations")
+    tui.focus_area = "nav"
     tui.move_top_menu_selection("right")
     assert tui.menu_items[tui.menu_index] == "history"
     tui.activate_menu_selection()
@@ -163,6 +168,49 @@ def test_tui_keyboard_menu_navigation_and_activation(tui):
 
     tui.activate_menu_selection()
     assert tui.config.get("theme") == "light-plus"
+
+
+def test_tui_focus_cycle_and_panel_activation(tui):
+    assert tui.focus_area == "input"
+
+    tui.focus_next_area()
+    assert tui.focus_area == "transcript"
+
+    tui.focus_next_area()
+    assert tui.focus_area == "nav"
+
+    tui.focus_next_area()
+    assert tui.focus_area == "panel"
+
+    tui.set_view("operations")
+    tui.focus_area = "panel"
+    first_operation = tui._selected_operation_name()
+    tui.activate_panel_selection()
+    assert tui.input.text.startswith(str(first_operation))
+
+    tui.input.text = ""
+    tui.run_command("add 2 3")
+    tui.set_view("history")
+    tui.focus_area = "panel"
+    tui.activate_panel_selection()
+    assert tui.input.text.startswith("add 2 3")
+
+
+def test_tui_settings_remains_full_width_with_command_bar(tui):
+    tui.set_view("settings")
+
+    assert type(tui._build_workspace()).__name__ == "HSplit"
+    assert type(tui._build_command_bar()).__name__ == "HSplit"
+    assert tui.input.text == ""
+
+
+def test_tui_nav_fragments_are_mouse_addressable(tui):
+    fragments = tui._nav_fragments()
+    labels = [fragment[1].strip() for fragment in fragments if len(fragment) >= 2]
+
+    assert "Operations" in labels
+    assert "Settings" in labels
+    assert any(len(fragment) == 3 for fragment in fragments)
 
 
 def test_tui_session_actions(tui):
