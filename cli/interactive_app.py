@@ -283,6 +283,7 @@ class FullScreenInteractiveApp:
         )
         self.operation_search = TextArea(
             height=1,
+            width=Dimension(preferred=28, min=18, max=36),
             multiline=False,
             prompt="Search: ",
             focus_on_click=True,
@@ -1049,12 +1050,37 @@ class FullScreenInteractiveApp:
             [
                 self.Label(" Available Functions ", style="class:search.label"),
                 Window(width=Dimension(weight=1), char=" ", style="class:side"),
-                self.operation_search,
+                self._build_operation_search_box(),
+                Window(width=4, char=" ", style="class:side"),
             ],
-            height=1,
+            height=3,
             style="class:side",
         )
         return HSplit([search_row, self.operations_window], style="class:side")
+
+    def _build_operation_search_box(self) -> Any:
+        from prompt_toolkit.layout.containers import HSplit, VSplit, Window
+        from prompt_toolkit.layout.dimension import Dimension
+
+        box_width = Dimension(preferred=32, min=22, max=40)
+        return HSplit(
+            [
+                Window(height=1, width=box_width, char="-", style="class:search.border"),
+                VSplit(
+                    [
+                        Window(width=1, char="|", style="class:search.border"),
+                        self.operation_search,
+                        Window(width=1, char="|", style="class:search.border"),
+                    ],
+                    height=1,
+                    style="class:search",
+                ),
+                Window(height=1, width=box_width, char="-", style="class:search.border"),
+            ],
+            width=box_width,
+            height=3,
+            style="class:search.border",
+        )
 
     def _side_panel_dimension(self) -> Any:
         import shutil
@@ -2126,6 +2152,7 @@ class FullScreenInteractiveApp:
                 "input.help.title": f"bg:{theme['panel_alt']} {theme['accent']} bold",
                 "search": f"bg:{theme['panel']} {theme['text']}",
                 "search.label": f"bg:{theme['inactive_panel']} {theme['accent']} bold",
+                "search.border": f"bg:{theme['inactive_panel']} {theme['accent']} bold",
                 "panel.more": f"bg:{theme['active_panel']} {theme['text']}",
                 "panel.more.title": f"bg:{theme['active_panel']} {theme['accent']} bold",
                 "more.border": f"bg:{theme['active_panel']} {theme['accent']} bold",

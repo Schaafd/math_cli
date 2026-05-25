@@ -277,6 +277,8 @@ def test_tui_operation_search_filters_available_functions(tui):
     assert "derivative" in tui._operation_names_for_view()
     assert "add" not in tui._operation_names_for_view()
     assert "Operations matching 'deriv'" in tui._operations_text()
+    assert type(tui._build_operations_browser()).__name__ == "HSplit"
+    assert type(tui._build_operation_search_box()).__name__ == "HSplit"
 
 
 def test_tui_operations_rows_are_clickable(tui):
