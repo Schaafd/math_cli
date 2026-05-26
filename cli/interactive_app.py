@@ -503,9 +503,7 @@ class FullScreenInteractiveApp:
                 return
         else:
             completion = completions[0]
-        self.input.buffer.delete_before_cursor(-completion.start_position)
-        self.input.buffer.insert_text(completion.text, fire_event=False)
-        self.status = f"Completed {completion.text}"
+        self._apply_completion(completion)
         self._refresh()
 
     def _input_text_changed(self, _: Any) -> None:
@@ -1018,6 +1016,10 @@ class FullScreenInteractiveApp:
                     filter=Condition(self._show_slash_completion_panel),
                 ),
                 ConditionalContainer(
+                    self._build_completion_panel(),
+                    filter=Condition(self._show_completion_panel),
+                ),
+                ConditionalContainer(
                     self.input_help_window,
                     filter=Condition(lambda: self.input_help_visible),
                 ),
@@ -1038,7 +1040,7 @@ class FullScreenInteractiveApp:
 
     def _command_bar_height(self) -> int:
         minimum_height = 5
-        if self._show_slash_completion_panel():
+        if self._show_slash_completion_panel() or self._show_completion_panel():
             minimum_height += 6
         if self.input_help_visible:
             minimum_height += 2
@@ -1055,6 +1057,18 @@ class FullScreenInteractiveApp:
             FormattedTextControl(self._slash_completion_fragments),
             height=Dimension(preferred=min(6, max(1, len(self._slash_completion_matches()))), min=1, max=6),
             style="class:slash.completion",
+            wrap_lines=False,
+        )
+
+    def _build_completion_panel(self) -> Any:
+        from prompt_toolkit.layout.containers import Window
+        from prompt_toolkit.layout.controls import FormattedTextControl
+        from prompt_toolkit.layout.dimension import Dimension
+
+        return Window(
+            FormattedTextControl(self._completion_fragments),
+            height=Dimension(preferred=min(6, max(1, len(self._completion_matches()))), min=1, max=6),
+            style="class:completion",
             wrap_lines=False,
         )
 
@@ -2016,9 +2030,78 @@ class FullScreenInteractiveApp:
             fragments.append((style, f"{text}\n", mouse_handler))
         return fragments
 
+    def _show_completion_panel(self) -> bool:
+        text = self.input.document.text_before_cursor
+        if not text.strip() or text.lstrip().startswith("/") or text.endswith(" "):
+            return False
+        current = text.replace("|", " ").split()[-1].lower()
+        if current in self.operations_metadata:
+            return False
+        return bool(self._completion_matches())
+
+    def _completion_matches(self) -> List[Any]:
+        from prompt_toolkit.completion import CompleteEvent
+
+        if not self.input.buffer.completer:
+            return []
+        text = self.input.document.text_before_cursor
+        if text.strip().startswith("/"):
+            return []
+        return list(
+            self.input.buffer.completer.get_completions(
+                self.input.document,
+                CompleteEvent(completion_requested=True),
+            )
+        )[:6]
+
+    def _completion_fragments(self) -> Any:
+        from prompt_toolkit.mouse_events import MouseEventType
+
+        fragments: List[Any] = []
+        for index, completion in enumerate(self._completion_matches()):
+            style = "class:completion.selected" if index == 0 else "class:completion"
+            meta = self._completion_meta_text(completion)
+            row = f" {completion.text:<18} {meta}".rstrip()
+            text = self._fit_line(row, self._terminal_columns() - 4)
+
+            def mouse_handler(mouse_event: Any, selected_completion: Any = completion) -> None:
+                if mouse_event.event_type in {MouseEventType.MOUSE_MOVE, MouseEventType.MOUSE_DOWN}:
+                    self.status = f"Selected {selected_completion.text}"
+                    self._focus_input()
+                if mouse_event.event_type == MouseEventType.MOUSE_UP:
+                    self._apply_completion(selected_completion)
+                    self._focus_input()
+                    self._refresh(clear=True)
+
+            fragments.append((style, f"{text}\n", mouse_handler))
+        return fragments
+
+    def _completion_meta_text(self, completion: Any) -> str:
+        meta = getattr(completion, "display_meta_text", None)
+        if meta:
+            return str(meta)
+        display_meta = getattr(completion, "display_meta", "")
+        if display_meta:
+            return str(display_meta)
+        operation = str(getattr(completion, "text", ""))
+        if operation in self.operations_metadata:
+            return self._operation_usage(operation)
+        return ""
+
+    def _apply_completion(self, completion: Any) -> None:
+        start_position = int(getattr(completion, "start_position", 0))
+        if start_position < 0:
+            self.input.buffer.delete_before_cursor(-start_position)
+        elif start_position > 0:
+            self.input.buffer.delete(count=start_position)
+        self.input.buffer.insert_text(str(completion.text), fire_event=False)
+        self.status = f"Completed {completion.text}"
+
     def _input_help_fragments(self) -> Any:
         if self._show_slash_completion_panel():
             return [("class:input.help", " Select a slash command with Tab or click a command above.\n")]
+        if self._show_completion_panel():
+            return [("class:input.help", " Tab completes the highlighted suggestion, or click a suggestion above.\n")]
         slash_help = self._input_help_slash_command()
         if slash_help is not None:
             command, description = slash_help
@@ -2504,6 +2587,8 @@ class FullScreenInteractiveApp:
                 "input.help.title": f"bg:{theme['panel_alt']} {theme['accent']} bold",
                 "slash.completion": f"bg:{theme['panel_alt']} {theme['text']}",
                 "slash.completion.selected": f"bg:{theme['button_focus']} {theme['text']} bold",
+                "completion": f"bg:{theme['panel_alt']} {theme['text']}",
+                "completion.selected": f"bg:{theme['button_focus']} {theme['text']} bold",
                 "search": f"bg:{theme['panel']} {theme['text']}",
                 "search.label": f"bg:{theme['inactive_panel']} {theme['accent']} bold",
                 "search.border": f"bg:{theme['inactive_panel']} {theme['accent']} bold",
@@ -2543,19 +2628,25 @@ class FullScreenInteractiveApp:
     def _intro_lines(self) -> List[str]:
         theme_name = str(self.config.get("theme", DEFAULT_THEME_NAME))
         config_name = self.config.config_file.name
-        return [
-            "MathCLI Interactive",
-            "+-- Quick Start ------------------------------------------------------------",
-            f"| Theme: {theme_name}    Config: {config_name}",
-            "| Try: add 5 10 | radius = 12 | pi * radius ^ 2",
-            "| Slash: /help /operations /history /settings",
-            "+-------------------------------------------------------------------------",
+        rows = [
+            f"Theme: {theme_name}    Config: {config_name}",
+            "Try: add 5 10 | radius = 12 | pi * radius ^ 2",
+            "Slash: /help /operations /history /settings",
         ]
+        box_width = min(self._terminal_columns() - 4, max(74, max(len(row) for row in rows) + 6))
+        inner_width = max(20, box_width - 2)
+        title = " Quick Start "
+        title_border = f"+--{title}{'-' * max(0, inner_width - len(title) - 2)}+"
+        return ["MathCLI Interactive", *[f"  {line}" for line in [
+            title_border,
+            *[f"| {row.ljust(inner_width - 2)} |" for row in rows],
+            f"+{'-' * inner_width}+",
+        ]]]
 
     def _replace_theme_line(self) -> None:
-        replacement = f"| Theme: {self.config.get('theme', DEFAULT_THEME_NAME)}    Config: {self.config.config_file.name}"
+        replacement = self._intro_lines()[2]
         for index, line in enumerate(self.output_lines):
-            if line.startswith("| Theme: ") or line.startswith("Theme: "):
+            if line.lstrip().startswith("| Theme: ") or line.startswith("Theme: "):
                 self.output_lines[index] = replacement
                 self.output.text = "\n".join(self.output_lines[-300:])
                 self.output.buffer.cursor_position = len(self.output.text)

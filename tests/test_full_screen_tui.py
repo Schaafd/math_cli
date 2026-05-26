@@ -346,6 +346,19 @@ def test_tui_command_bar_uses_distinct_input_panel(tui):
     assert type(tui._build_command_bar()).__name__ == "HSplit"
 
 
+def test_tui_quick_start_box_is_closed_and_indented(tui):
+    intro = tui._intro_lines()
+    box = intro[1:]
+    widths = {len(line) for line in box}
+
+    assert len(widths) == 1
+    assert all(line.startswith("  ") for line in box)
+    assert box[0].strip().startswith("+-- Quick Start ")
+    assert box[0].endswith("+")
+    assert box[-1].endswith("+")
+    assert all(line.endswith("|") for line in box[1:-1])
+
+
 def test_tui_input_help_tracks_current_operation_and_tab_completes(tui):
     tui.input.text = "ad"
     tui.input.buffer.cursor_position = len(tui.input.text)
@@ -371,6 +384,30 @@ def test_tui_input_help_tracks_current_operation_and_tab_completes(tui):
 
     assert "/export" in slash_rendered
     assert "Export history" in slash_rendered
+
+
+def test_tui_operation_completion_panel_is_visible_and_clickable(tui):
+    from prompt_toolkit.mouse_events import MouseEventType
+
+    class Event:
+        def __init__(self, event_type):
+            self.event_type = event_type
+
+    tui.input.text = "mu"
+    tui.input.buffer.cursor_position = len(tui.input.text)
+
+    assert tui._show_completion_panel() is True
+    assert type(tui._build_command_bar()).__name__ == "HSplit"
+    assert tui._command_bar_height() >= 11
+
+    fragments = [fragment for fragment in tui._completion_fragments() if len(fragment) == 3]
+    assert any("multiply" in fragment[1] for fragment in fragments)
+
+    multiply_fragment = next(fragment for fragment in fragments if "multiply" in fragment[1])
+    multiply_fragment[2](Event(MouseEventType.MOUSE_UP))
+
+    assert tui.input.text == "multiply"
+    assert "Completed multiply" in tui.status
 
 
 def test_tui_slash_completion_panel_is_visible_and_clickable(tui):
