@@ -575,8 +575,8 @@ class FullScreenInteractiveApp:
             self.app.style = self._style()
         except Exception:
             pass
-        self._focus_input()
-        self._refresh(clear=True)
+        self._focus_after_settings_change()
+        self._refresh()
 
     def reload_config(self) -> None:
         self.config = TUIConfig(self.config.config_file)
@@ -590,15 +590,23 @@ class FullScreenInteractiveApp:
             self.app.style = self._style()
         except Exception:
             pass
-        self._focus_input()
-        self._refresh(clear=True)
+        self._focus_after_settings_change()
+        self._refresh()
 
     def update_tui_setting(self, key: str, value: Any) -> None:
         self.config.config[key] = value
         self.config.save()
         self.status = f"Updated {key} = {value}"
-        self._focus_input()
-        self._refresh(clear=True)
+        self._focus_after_settings_change()
+        self._refresh()
+
+    def _focus_after_settings_change(self) -> None:
+        if self.view == "settings":
+            if self.settings_section in {"themes", "layout"}:
+                self.menu_focus = "items"
+            self._focus_panel()
+        else:
+            self._focus_input()
 
     def new_session(self) -> None:
         name = f"Session {datetime.now().strftime('%b %d, %H:%M')}"
@@ -1456,12 +1464,13 @@ class FullScreenInteractiveApp:
             row_names = theme_names[index:index + 2]
             buttons = []
             for offset, theme_name in enumerate(row_names):
+                item_index = index + offset
                 buttons.append(
                     self.Button(
                         theme_name,
-                        handler=lambda name=theme_name: self.apply_theme(name),
+                        handler=lambda name=theme_name, selected_index=item_index: self._activate_theme_button(name, selected_index),
                         width=max(14, min(20, len(theme_name) + 4)),
-                        selected=lambda item_index=index + offset: self._theme_selected(item_index),
+                        selected=lambda selected_index=item_index: self._theme_selected(selected_index),
                     )
                 )
                 buttons.append(Window(width=1, char=" ", style="class:gutter"))
@@ -1480,6 +1489,11 @@ class FullScreenInteractiveApp:
             return theme_names.index(active_theme)
         return 0
 
+    def _activate_theme_button(self, theme_name: str, index: int) -> None:
+        self.theme_index = index
+        self.menu_focus = "items"
+        self.apply_theme(theme_name)
+
     def _layout_buttons(self) -> Any:
         from prompt_toolkit.layout.containers import HSplit, VSplit, Window
         from prompt_toolkit.layout.dimension import Dimension
@@ -1491,7 +1505,7 @@ class FullScreenInteractiveApp:
                     [
                         self.Button(
                             label,
-                            handler=handler,
+                            handler=lambda action=handler, selected_index=index: self._activate_layout_button(action, selected_index),
                             width=width,
                             selected=lambda item_index=index: self._layout_selected(item_index),
                         )
@@ -1505,7 +1519,7 @@ class FullScreenInteractiveApp:
                     [
                         self.Button(
                             label,
-                            handler=handler,
+                            handler=lambda action=handler, selected_index=index: self._activate_layout_button(action, selected_index),
                             width=width,
                             selected=lambda item_index=index: self._layout_selected(item_index),
                         )
@@ -1532,6 +1546,11 @@ class FullScreenInteractiveApp:
             ("Footer", lambda: self.update_tui_setting("show_footer", not bool(self.config.get("show_footer", True))), 9),
             ("Hints", lambda: self.update_tui_setting("show_shortcut_hints", not bool(self.config.get("show_shortcut_hints", True))), 8),
         ]
+
+    def _activate_layout_button(self, action: Callable[[], None], index: int) -> None:
+        self.layout_index = index
+        self.menu_focus = "items"
+        action()
 
     def _settings_tab_selected(self, tab: str) -> bool:
         return self.view == "settings" and self.menu_focus == "tabs" and self.settings_tabs[self.settings_tab_index] == tab

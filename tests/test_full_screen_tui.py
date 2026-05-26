@@ -981,6 +981,27 @@ def test_tui_settings_actions_update_config(tui):
     assert tui.config.get("theme") == "tokyo-night"
 
 
+def test_tui_settings_actions_keep_focus_on_selected_setting(tui):
+    tui.set_view("themes")
+    tui.theme_index = 1
+    tui.activate_menu_selection()
+
+    assert tui.config.get("theme") == tui._menu_theme_names()[1]
+    assert tui.focus_area == "panel"
+    assert tui.menu_focus == "items"
+    assert tui.theme_index == 1
+
+    tui.set_settings_section("layout")
+    current_width = int(tui.config.get("side_panel_width"))
+    tui.layout_index = 1
+    tui.activate_menu_selection()
+
+    assert tui.config.get("side_panel_width") == current_width + 4
+    assert tui.focus_area == "panel"
+    assert tui.menu_focus == "items"
+    assert tui.layout_index == 1
+
+
 def test_tui_current_session_label_without_session(tui):
     tui.session_manager.current_session_id = None
 
