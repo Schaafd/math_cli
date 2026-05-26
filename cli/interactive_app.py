@@ -519,7 +519,7 @@ class FullScreenInteractiveApp:
     def toggle_input_help(self) -> None:
         self.input_help_visible = not self.input_help_visible
         self.status = "Input help shown" if self.input_help_visible else "Input help hidden"
-        self._refresh(clear=True)
+        self._refresh()
 
     def set_view(self, view: str) -> None:
         self.view = view
@@ -541,7 +541,7 @@ class FullScreenInteractiveApp:
             self.menu_index = self.menu_items.index(view)
         self.status = f"Showing {view}"
         self._focus_input()
-        self._refresh(clear=True)
+        self._refresh()
 
     def set_settings_section(self, section: str) -> None:
         if section == "keys":
@@ -557,7 +557,7 @@ class FullScreenInteractiveApp:
         self.menu_focus = "items" if section in {"themes", "layout"} else "tabs"
         self.status = f"Settings: {section}"
         self._focus_panel()
-        self._refresh(clear=True)
+        self._refresh()
 
     def apply_theme(self, theme_name: str) -> None:
         if theme_name not in self.config.get("themes", {}):
@@ -1676,7 +1676,7 @@ class FullScreenInteractiveApp:
         else:
             self.status = "Closed more operations"
             self._focus_input()
-        self._refresh(clear=True)
+        self._refresh()
 
     def _more_operation_names(self) -> List[str]:
         return sorted(name for name in self.operations_metadata if not name.startswith("_"))
@@ -1698,7 +1698,7 @@ class FullScreenInteractiveApp:
         self.more_operations_open = False
         self.insert_command(command)
         self.status = f"Inserted {command}"
-        self._refresh(clear=True)
+        self._refresh()
 
     def _more_operations_fragments(self) -> Any:
         from prompt_toolkit.mouse_events import MouseEventType
@@ -2537,7 +2537,7 @@ class FullScreenInteractiveApp:
             self.more_operations_open = False
             self._focus_input()
             self.status = "Closed more operations"
-            self._refresh(clear=True)
+            self._refresh()
 
         return kb
 

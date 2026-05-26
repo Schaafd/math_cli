@@ -161,6 +161,9 @@ def test_tui_input_submission_and_insert_helpers(tui):
 
 
 def test_tui_views_and_side_panel_text(tui):
+    refresh_calls = []
+    tui._refresh = lambda clear=False: refresh_calls.append(clear)
+
     tui.set_view("operations")
     assert "Operations" in tui._side_panel_text()
 
@@ -192,6 +195,7 @@ def test_tui_views_and_side_panel_text(tui):
 
     tui.set_view("help")
     assert "/operations" in tui._side_panel_text()
+    assert True not in refresh_calls
 
 
 def test_tui_keybindings_do_not_steal_backspace(tui):
@@ -647,8 +651,11 @@ def test_tui_more_operations_mouse_and_empty_branches(tui):
 
     add_fragment[2](Event(MouseEventType.MOUSE_DOWN))
     assert tui.focus_area == "more"
+    refresh_calls = []
+    tui._refresh = lambda clear=False: refresh_calls.append(clear)
     add_fragment[2](Event(MouseEventType.MOUSE_UP))
     assert tui.input.text.startswith("add")
+    assert True not in refresh_calls
 
     tui.operations_metadata = {}
     assert "No operations available" in tui._more_operations_fragments()[0][1]
@@ -673,8 +680,11 @@ def test_tui_more_popup_and_focus_application_branches(tui):
         tui._apply_focus_area()
         assert tui.status.startswith("Focus:")
 
+    refresh_calls = []
+    tui._refresh = lambda clear=False: refresh_calls.append(clear)
     tui.toggle_more_operations()
     assert tui.more_operations_open is False
+    assert refresh_calls == [False]
 
 
 def test_tui_settings_tabs_fill_width_and_are_mouse_addressable(tui, monkeypatch):
