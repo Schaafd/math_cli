@@ -1647,12 +1647,13 @@ class FullScreenInteractiveApp:
             used_width += len(text)
 
             def mouse_handler(mouse_event: Any, selected_index: int = index, command: str = label) -> None:
-                if mouse_event.event_type in {MouseEventType.MOUSE_MOVE, MouseEventType.MOUSE_DOWN}:
+                if mouse_event.event_type == MouseEventType.MOUSE_MOVE:
                     self.favorite_index = selected_index
                     self.focus_area = "favorites"
                     self.status = f"Focus: {self._focus_label()}"
                     self._focus_favorites()
-                if mouse_event.event_type == MouseEventType.MOUSE_UP:
+                if mouse_event.event_type == MouseEventType.MOUSE_DOWN:
+                    self.favorite_index = selected_index
                     if command == "...":
                         self.toggle_more_operations()
                     else:

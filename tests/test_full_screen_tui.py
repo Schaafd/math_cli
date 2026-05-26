@@ -619,15 +619,16 @@ def test_tui_favorites_mouse_handlers_insert_and_open_more(tui, monkeypatch):
     add_fragment = next(fragment for fragment in fragments if "add" in fragment[1])
     more_fragment = next(fragment for fragment in fragments if "..." in fragment[1])
 
-    add_fragment[2](Event(MouseEventType.MOUSE_DOWN))
+    add_fragment[2](Event(MouseEventType.MOUSE_MOVE))
     assert tui.focus_area == "favorites"
     assert "Favorites bar" in tui.status
 
-    add_fragment[2](Event(MouseEventType.MOUSE_UP))
+    add_fragment[2](Event(MouseEventType.MOUSE_DOWN))
     assert tui.input.text.startswith("add")
     assert "Inserted add" in tui.status
+    assert tui.focus_area == "input"
 
-    more_fragment[2](Event(MouseEventType.MOUSE_UP))
+    more_fragment[2](Event(MouseEventType.MOUSE_DOWN))
     assert tui.more_operations_open is True
     assert tui.focus_area == "more"
 
