@@ -7,11 +7,15 @@ This module extends the basic ASCII plotting with:
 - Heatmaps
 - Distribution plots
 """
+from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 from typing import List, Union, Optional, Tuple
 from utils.plotting import ASCIIPlotter
+from utils.lazy_import import LazyModule
+
+
+np = LazyModule("numpy")
+pd = LazyModule("pandas")
 
 
 class StatisticalPlotter:

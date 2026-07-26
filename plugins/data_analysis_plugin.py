@@ -7,12 +7,17 @@ This plugin provides advanced data analysis capabilities including:
 - Outlier detection
 - Time series analysis
 """
+from __future__ import annotations
 
 from core.base_operations import MathOperation
-import pandas as pd
-import numpy as np
 from typing import Union, List, Dict, Any
 from utils.data_io import get_data_manager
+from utils.lazy_import import LazyModule
+
+
+REQUIRED_DEPENDENCIES = ("numpy", "pandas")
+np = LazyModule("numpy")
+pd = LazyModule("pandas")
 
 
 class LoadDataOperation(MathOperation):

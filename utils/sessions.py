@@ -1,10 +1,11 @@
 """Session management for Math CLI interactive mode."""
 
-import json
 import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+
+from utils.serialization import atomic_write_json, load_json
 
 
 class SessionManager:
@@ -53,9 +54,8 @@ class SessionManager:
         """
         if self.index_file.exists():
             try:
-                with open(self.index_file, 'r') as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, IOError):
+                return load_json(self.index_file)
+            except (OSError, TypeError, ValueError):
                 # If corrupted, start fresh
                 return {"sessions": {}, "last_active": None}
         else:
@@ -64,9 +64,8 @@ class SessionManager:
     def _save_index(self):
         """Save the sessions index file."""
         try:
-            with open(self.index_file, 'w') as f:
-                json.dump(self.index, f, indent=2)
-        except IOError as e:
+            atomic_write_json(self.index_file, self.index)
+        except (OSError, TypeError, ValueError) as e:
             print(f"Warning: Could not save sessions index: {e}")
 
     def _generate_session_id(self) -> str:
@@ -118,9 +117,8 @@ class SessionManager:
         # Save session file
         session_file = self._get_session_file(session_id)
         try:
-            with open(session_file, 'w') as f:
-                json.dump(session_data, f, indent=2)
-        except IOError as e:
+            atomic_write_json(session_file, session_data)
+        except (OSError, TypeError, ValueError) as e:
             print(f"Error creating session: {e}")
             return None
 
@@ -167,8 +165,7 @@ class SessionManager:
             return None
 
         try:
-            with open(session_file, 'r') as f:
-                session_data = json.load(f)
+            session_data = load_json(session_file)
 
             # Set as current session
             self.current_session_id = session_id
@@ -177,7 +174,7 @@ class SessionManager:
             self._save_index()
 
             return session_data
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, TypeError, ValueError) as e:
             print(f"Error loading session: {e}")
             return None
 
@@ -192,15 +189,14 @@ class SessionManager:
         # Save session file
         session_file = self._get_session_file(self.current_session_id)
         try:
-            with open(session_file, 'w') as f:
-                json.dump(self.current_session, f, indent=2)
+            atomic_write_json(session_file, self.current_session)
 
             # Update index
             self.index["sessions"][self.current_session_id]["updated_at"] = self.current_session["updated_at"]
             self.index["sessions"][self.current_session_id]["command_count"] = len(self.current_session["commands"])
             self._save_index()
 
-        except IOError as e:
+        except (OSError, TypeError, ValueError) as e:
             print(f"Warning: Could not save session: {e}")
 
     def add_command(self, command: str, result: Any):
@@ -259,12 +255,10 @@ class SessionManager:
             session_file = self._get_session_file(session_id)
             if session_file.exists():
                 try:
-                    with open(session_file, 'r') as f:
-                        session_data = json.load(f)
+                    session_data = load_json(session_file)
                     session_data["name"] = new_name
-                    with open(session_file, 'w') as f:
-                        json.dump(session_data, f, indent=2)
-                except (json.JSONDecodeError, IOError):
+                    atomic_write_json(session_file, session_data)
+                except (OSError, TypeError, ValueError):
                     pass
 
         return True

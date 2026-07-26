@@ -1,5 +1,11 @@
 def format_plugin_list(operations_metadata):
     """Format the list of available operations for display, organized by category."""
+    operations_metadata = {
+        name: metadata
+        for name, metadata in operations_metadata.items()
+        if not name.startswith("_")
+    }
+
     if not operations_metadata:
         return "No operations available."
 

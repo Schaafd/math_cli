@@ -27,6 +27,9 @@ flowchart TD
 
 ### Plugin System Description
 
+Custom plugins execute as trusted Python code in the Math CLI process. Only load
+plugin directories that you control and have reviewed.
+
 1. **Start Math CLI**: The application begins execution at the main entry point.
 2. **Initialize PluginManager**: A new PluginManager instance is created to handle plugin discovery and loading.
 3. **Add built-in plugin directory**: The directory containing standard operations is registered.

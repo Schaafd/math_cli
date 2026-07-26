@@ -198,3 +198,23 @@ def test_main_unknown_operation_is_concise_and_suggests_match(capsys):
     assert "invalid choice" not in output
     assert "choose from" not in output
     assert "usage:" not in output.lower()
+
+
+def test_main_domain_error_is_concise_without_traceback(capsys):
+    exit_code = run_cli(["math_cli.py", "divide", "1", "0"])
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    output = captured.out + captured.err
+    assert "Error: Cannot divide by zero" in output
+    assert "Traceback" not in output
+
+
+def test_main_expression_error_is_concise_without_traceback(capsys):
+    exit_code = run_cli(["math_cli.py", "1 / 0"])
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    output = captured.out + captured.err
+    assert "Error: division by zero" in output
+    assert "Traceback" not in output

@@ -397,8 +397,7 @@ def get_styled_prompt(previous_result=None):
 
 def clear_screen():
     """Clear the terminal screen."""
-    import os
-    os.system('cls' if os.name == 'nt' else 'clear')
+    console.clear()
 
 
 def print_separator(char='─', style='dim'):

@@ -1,8 +1,13 @@
 """Matrix operations plugin for Math CLI using NumPy."""
+from __future__ import annotations
 
 from core.base_operations import MathOperation
-import numpy as np
 from typing import List, Union
+from utils.lazy_import import LazyModule
+
+
+REQUIRED_DEPENDENCIES = ("numpy",)
+np = LazyModule("numpy")
 
 
 class MatrixCreateOperation(MathOperation):

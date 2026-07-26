@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-26
+
+### Changed
+- Require Python 3.11 or newer and bound dependency major versions.
+- Make built-in duplicate operation ownership explicit and deterministic.
+- Add the stable `math_cli_app` package entry point while retaining legacy modules.
+- Split scientific, data, and plotting dependencies into optional extras and
+  lazy-load them, reducing basic command startup time.
+- Standardize CLI validation/domain errors as concise stderr messages with exit code 2.
+- Broaden test coverage to the entry point, plugins, persistence, and interactive modules.
+
+### Fixed
+- Preserve complex, NumPy, and pandas results in persistent history and sessions.
+- Write configuration, history, session, and variable data atomically.
+- Prevent one-shot expression mode from creating configuration or session files.
+- Keep the existing state file intact when a persistence write fails.
+
 ### Phase 3: Session Management & Personalization - 2025-10-16
 
 #### Added

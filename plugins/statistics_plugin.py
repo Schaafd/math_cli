@@ -1,9 +1,14 @@
 """Statistical operations plugin for Math CLI using SciPy."""
+from __future__ import annotations
 
 from core.base_operations import MathOperation
-import numpy as np
-from scipy import stats
 import math
+from utils.lazy_import import LazyModule
+
+
+REQUIRED_DEPENDENCIES = ("numpy", "scipy")
+np = LazyModule("numpy")
+stats = LazyModule("scipy.stats")
 
 
 class MeanOperation(MathOperation):

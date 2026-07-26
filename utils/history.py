@@ -1,9 +1,10 @@
 """Module for managing calculation history in the Math CLI."""
 
-import json
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+
+from utils.serialization import atomic_write_json, load_json
 
 
 class HistoryManager:
@@ -48,16 +49,15 @@ class HistoryManager:
         """Load history from file if it exists."""
         if self.history_file and self.history_file.exists():
             try:
-                with open(self.history_file, 'r') as f:
-                    data = json.load(f)
-                    self.history = data.get('history', [])
-                    self.bookmarks = data.get('bookmarks', {})
+                data = load_json(self.history_file)
+                self.history = data.get('history', [])
+                self.bookmarks = data.get('bookmarks', {})
 
-                    # Trim to max entries
-                    if len(self.history) > self.max_entries:
-                        self.history = self.history[:self.max_entries]
+                # Trim to max entries
+                if len(self.history) > self.max_entries:
+                    self.history = self.history[:self.max_entries]
 
-            except (json.JSONDecodeError, IOError) as e:
+            except (OSError, TypeError, ValueError) as e:
                 print(f"Warning: Could not load history: {e}")
                 self.history = []
                 self.bookmarks = {}
@@ -66,16 +66,14 @@ class HistoryManager:
         """Save history to file."""
         if self.history_file and self.persistent:
             try:
-                # Ensure directory exists
-                self.history_file.parent.mkdir(parents=True, exist_ok=True)
-
-                with open(self.history_file, 'w') as f:
-                    data = {
+                atomic_write_json(
+                    self.history_file,
+                    {
                         'history': self.history,
-                        'bookmarks': self.bookmarks
-                    }
-                    json.dump(data, f, indent=2)
-            except IOError as e:
+                        'bookmarks': self.bookmarks,
+                    },
+                )
+            except (OSError, TypeError, ValueError) as e:
                 print(f"Warning: Could not save history: {e}")
 
     def add_entry(self, command, result):
@@ -203,7 +201,8 @@ class HistoryManager:
             }
 
             with open(filepath, 'w') as f:
-                json.dump(export_data, f, indent=2)
+                import json
+                json.dump(export_data, f, indent=2, default=str)
 
             return True
         except IOError as e:

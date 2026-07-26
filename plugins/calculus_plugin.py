@@ -1,45 +1,54 @@
 """Calculus operations plugin for Math CLI using SymPy."""
+from __future__ import annotations
+
 from typing import Iterable, Set
 
 from core.base_operations import MathOperation
-import sympy as sp
-from sympy.parsing.sympy_parser import (
-    parse_expr,
-    standard_transformations,
-    implicit_multiplication_application,
-)
-from scipy import integrate
+from utils.lazy_import import LazyModule
 
 
-ALLOWED_FUNCTIONS = {
-    "sin": sp.sin,
-    "cos": sp.cos,
-    "tan": sp.tan,
-    "asin": sp.asin,
-    "acos": sp.acos,
-    "atan": sp.atan,
-    "sinh": sp.sinh,
-    "cosh": sp.cosh,
-    "tanh": sp.tanh,
-    "asinh": sp.asinh,
-    "acosh": sp.acosh,
-    "atanh": sp.atanh,
-    "exp": sp.exp,
-    "log": sp.log,
-    "ln": sp.log,
-    "sqrt": sp.sqrt,
-    "abs": sp.Abs,
-    "Abs": sp.Abs,
-}
+REQUIRED_DEPENDENCIES = ("scipy", "sympy")
+sp = LazyModule("sympy")
+sympy_parser = LazyModule("sympy.parsing.sympy_parser")
+integrate = LazyModule("scipy.integrate")
 
-ALLOWED_CONSTANTS = {
-    "pi": sp.pi,
-    "E": sp.E,
-    "I": sp.I,
-    "oo": sp.oo,
-}
 
-TRANSFORMATIONS = standard_transformations + (implicit_multiplication_application,)
+def _allowed_functions():
+    return {
+        "sin": sp.sin,
+        "cos": sp.cos,
+        "tan": sp.tan,
+        "asin": sp.asin,
+        "acos": sp.acos,
+        "atan": sp.atan,
+        "sinh": sp.sinh,
+        "cosh": sp.cosh,
+        "tanh": sp.tanh,
+        "asinh": sp.asinh,
+        "acosh": sp.acosh,
+        "atanh": sp.atanh,
+        "exp": sp.exp,
+        "log": sp.log,
+        "ln": sp.log,
+        "sqrt": sp.sqrt,
+        "abs": sp.Abs,
+        "Abs": sp.Abs,
+    }
+
+
+def _allowed_constants():
+    return {
+        "pi": sp.pi,
+        "E": sp.E,
+        "I": sp.I,
+        "oo": sp.oo,
+    }
+
+
+def _transformations():
+    return sympy_parser.standard_transformations + (
+        sympy_parser.implicit_multiplication_application,
+    )
 
 
 def _is_safe_symbol_name(name: str) -> bool:
@@ -71,19 +80,19 @@ def _parse_expression(expression: str, allowed_symbols: Iterable[str] | None = N
 
     allowed_set: Set[str] = set(allowed_symbols or [])
     local_dict = {name: sp.Symbol(name) for name in allowed_set}
-    local_dict.update(ALLOWED_FUNCTIONS)
-    local_dict.update(ALLOWED_CONSTANTS)
+    local_dict.update(_allowed_functions())
+    local_dict.update(_allowed_constants())
     local_dict["Symbol"] = _build_symbol_factory(allowed_set)
     local_dict["Integer"] = sp.Integer
     local_dict["Float"] = sp.Float
     local_dict["Rational"] = sp.Rational
 
     try:
-        expr = parse_expr(
+        expr = sympy_parser.parse_expr(
             expression,
             local_dict=local_dict,
             global_dict={"__builtins__": {}},
-            transformations=TRANSFORMATIONS,
+            transformations=_transformations(),
         )
     except Exception as exc:  # pragma: no cover - parse_expr raises varied exceptions
         raise ValueError(f"Invalid expression: {exc}") from exc

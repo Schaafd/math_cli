@@ -85,13 +85,13 @@ The update routine reinstalls the package in editable mode, then verifies:
 If you already use `uv` or `pipx`, you can install directly from GitHub:
 
 ```bash
-uv tool install git+https://github.com/Schaafd/math_cli.git
+uv tool install "math-cli[all] @ git+https://github.com/Schaafd/math_cli.git"
 ```
 
 or:
 
 ```bash
-pipx install git+https://github.com/Schaafd/math_cli.git
+pipx install "math-cli[all] @ git+https://github.com/Schaafd/math_cli.git"
 ```
 
 ### Development Install
@@ -101,19 +101,20 @@ For local development and tests:
 ```bash
 git clone https://github.com/Schaafd/math_cli.git
 cd math_cli
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ".[test]"
+python -m pip install -e ".[all,test]"
 pytest -q
 ```
 
 You can still run the script directly with `python math_cli.py ...`, but normal
-use should be through the installed `math` command.
+use should be through the installed `math` command. The stable package entry
+point is also available as `python -m math_cli_app`.
 
 ### Requirements
 
 **Core Dependencies:**
-- Python 3.8 or higher
+- Python 3.11 or higher
 - rich >= 14.0.0 (for visual enhancements)
 - prompt_toolkit >= 3.0.0 (for autocompletion and interactive features)
 - psutil >= 5.9.0 (for performance monitoring)
@@ -127,6 +128,11 @@ use should be through the installed `math` command.
 - pandas >= 2.0.0 (data manipulation and analysis)
 - matplotlib >= 3.7.0 (plotting backend reference)
 - seaborn >= 0.12.0 (statistical visualization patterns)
+
+The quick installer includes the `all` extra. Minimal package installs can omit
+the scientific stack; advanced modules whose optional dependencies are missing
+are skipped without breaking basic arithmetic. Extras are available as
+`scientific`, `data`, `plot`, and `all`.
 
 **Development Tools:**
 - pytest >= 7.0.0 (testing)
@@ -243,7 +249,7 @@ To list all available operations:
 math --list-plugins
 ```
 
-Math CLI includes **266+ mathematical operations** organized into 17 logical categories:
+Math CLI includes **264 public mathematical operations** organized into 18 logical categories:
 
 The operations are organized into these categories (use `--list-plugins` to see all):
 
@@ -258,12 +264,13 @@ The operations are organized into these categories (use `--list-plugins` to see 
 9. **Geometry** (9 ops) - area_circle, volume_sphere, distance, perimeter
 10. **Data Analysis** (12 ops) - load_data, describe_data, correlation_matrix, groupby
 11. **Data Transformation** (11 ops) - filter_data, normalize_data, sort_data, aggregate_data
-12. **Visualization** (8 ops) - plot_hist, plot_box, plot_scatter, plot_heatmap, plot, plot_line, plot_bar, plot_data
-13. **Scripting** (24 ops) - Variables (6), Control Flow (13), Functions (3), Scripts (2)
-14. **Integration** (6 ops) - export_session, import_session, export_vars, import_vars, export_funcs, import_funcs
-15. **Unit Conversions** (38 ops) - celsius_to_fahrenheit, miles_to_kilometers, etc.
-16. **Constants** (7 ops) - pi, e, golden_ratio, speed_of_light, avogadro
-17. **Other Operations** (23 ops) - Various utility functions
+12. **Unit Conversions** (38 ops) - celsius_to_fahrenheit, miles_to_kilometers, etc.
+13. **Constants** (7 ops) - pi, e, golden_ratio, speed_of_light, avogadro
+14. **Control Flow** (13 ops) - conditionals, loops, and comparisons
+15. **Integration** (6 ops) - export_session, import_session, export_vars, import_vars, export_funcs, import_funcs
+16. **Scripting** (11 ops) - variables, functions, and script execution
+17. **Visualization** (4 ops) - plot, plot_line, plot_bar, plot_scatter
+18. **Other Operations** (29 ops) - Various utility functions
 
 ## Core Plugins
 
@@ -1364,6 +1371,9 @@ Benefits of chained calculations:
 
 ## Plugin System
 
+> **Security:** Plugins run as trusted Python code inside the Math CLI process.
+> Only pass `--plugin-dir` paths that you control and have reviewed.
+
 Math CLI features a flexible plugin system that allows you to extend its functionality without modifying the core codebase.
 
 ### Using Custom Plugins
@@ -1480,6 +1490,15 @@ The `--no-color` and `--no-animations` flags ensure Math CLI is accessible to al
 - **`--no-color`**: Removes all color formatting, useful for screen readers and terminals without color support
 - **`--no-animations`**: Disables animated elements like the startup banner and loading spinners
 - Both flags can be combined for maximum compatibility
+
+### Exit Codes
+
+- `0` — command completed successfully
+- `1` — startup, dependency, persistence, or unexpected operation failure
+- `2` — invalid command, arguments, expression, or mathematical domain error
+
+Expected user errors are printed as concise `Error: ...` messages on stderr without
+a Python traceback.
 
 ## Code Structure Diagrams
 

@@ -104,9 +104,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             ).execute(expression_input)
             print(f"Result: {execution.result}")
             return 0
-        except ValueError as exc:
+        except (ArithmeticError, TypeError, ValueError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 2
+        except Exception as exc:
+            print(f"Error: expression failed: {exc}", file=sys.stderr)
+            return 1
 
     operation_name = remaining_args[0]
     if not operation_name.startswith('-') and operation_name not in operations_metadata:
@@ -135,7 +138,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     except SystemExit as exc:
         if exc.code == 0:
             return 0
-        return exc.code
+        return exc.code if isinstance(exc.code, int) else 1
+    except (ArithmeticError, TypeError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+    except Exception as exc:
+        print(f"Error: operation failed: {exc}", file=sys.stderr)
+        return 1
 
     return 0
 

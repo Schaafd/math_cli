@@ -69,3 +69,20 @@ def test_engine_supports_factorial_expression(engine):
 def test_engine_rejects_unknown_command(engine):
     with pytest.raises(ValueError, match="Unknown operation"):
         engine.execute("sub 1 2")
+
+
+def test_non_persistent_engine_does_not_create_config_or_session_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    manager = PluginManager()
+    manager.discover_plugins()
+
+    one_shot_engine = MathCommandEngine(
+        manager,
+        manager.get_operations_metadata(),
+        record_history=False,
+    )
+
+    assert one_shot_engine.execute("7 + 9 * 2").result == 25
+    assert one_shot_engine.history.persistent is False
+    assert one_shot_engine.session_manager is None
+    assert not (tmp_path / "math_cli").exists()

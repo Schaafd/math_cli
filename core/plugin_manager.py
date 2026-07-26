@@ -2,9 +2,37 @@ import importlib
 import importlib.util
 import inspect
 import pkgutil
+import sys
 from pathlib import Path
 from typing import Dict, List, Type, Any, Tuple
 from core.base_operations import MathOperation
+
+
+BUILTIN_OPERATION_OWNERS = {
+    "combinations": "plugins.number_theory_plugin",
+    "factorial": "plugins.number_theory_plugin",
+    "fibonacci": "plugins.number_theory_plugin",
+    "gcd": "plugins.number_theory_plugin",
+    "is_prime": "plugins.number_theory_plugin",
+    "lcm": "plugins.number_theory_plugin",
+    "mean": "plugins.statistics_plugin",
+    "median": "plugins.statistics_plugin",
+    "mode": "plugins.statistics_plugin",
+    "permutations": "plugins.number_theory_plugin",
+    "prime_factors": "plugins.number_theory_plugin",
+    "range": "plugins.statistics_plugin",
+    "variance": "plugins.statistics_plugin",
+}
+
+OPTIONAL_DEPENDENCY_NAMES = {
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "scipy",
+    "seaborn",
+    "sympy",
+}
+
 
 class PluginManager:
     """Manages math operation plugins."""
@@ -13,6 +41,7 @@ class PluginManager:
         self.operations: Dict[str, Type[MathOperation]] = {}
         self.plugin_dirs: List[Path] = []
         self.duplicate_operations: Dict[str, List[str]] = {}
+        self.unavailable_plugins: Dict[str, str] = {}
         self._variable_substitution_enabled = True
 
     def register_operation(self, operation_class: Type[MathOperation]) -> None:
@@ -33,7 +62,15 @@ class PluginManager:
 
             existing_is_builtin = existing_operation.__module__.startswith("plugins.")
             current_is_builtin = operation_class.__module__.startswith("plugins.")
-            if not (existing_is_builtin and current_is_builtin):
+            if existing_is_builtin and current_is_builtin:
+                preferred_module = BUILTIN_OPERATION_OWNERS.get(operation_class.name)
+                if preferred_module is None:
+                    return
+                if existing_operation.__module__ == preferred_module:
+                    return
+                if operation_class.__module__ != preferred_module:
+                    return
+            else:
                 raise ValueError(
                     f"Operation name '{operation_class.name}' is already registered by {previous}"
                 )
@@ -131,17 +168,36 @@ class PluginManager:
         """Load plugins from a specific module."""
         try:
             module = importlib.import_module(module_name)
-            for _, submodule_name, ispkg in pkgutil.iter_modules(module.__path__, module.__name__ + '.'):
+            discovered_modules = sorted(
+                pkgutil.iter_modules(module.__path__, module.__name__ + '.'),
+                key=lambda item: item.name,
+            )
+            for _, submodule_name, ispkg in discovered_modules:
                 if submodule_name.endswith('.plugin_template'):
                     continue
                 if not ispkg:  # Only process modules, not packages
                     try:
                         submodule = importlib.import_module(submodule_name)
+                        requirements = getattr(submodule, "REQUIRED_DEPENDENCIES", ())
+                        missing = [
+                            requirement
+                            for requirement in requirements
+                            if importlib.util.find_spec(requirement) is None
+                        ]
+                        if missing:
+                            self.unavailable_plugins[submodule_name] = ", ".join(missing)
+                            continue
                         self._register_operations_from_module(submodule)
-                    except ImportError as e:
-                        print(f"Error importing {submodule_name}: {e}")
-        except ImportError as e:
-            print(f"Error importing {module_name}: {e}")
+                    except ModuleNotFoundError as e:
+                        missing_name = (e.name or "").split(".", 1)[0]
+                        if missing_name in OPTIONAL_DEPENDENCY_NAMES:
+                            self.unavailable_plugins[submodule_name] = missing_name
+                            continue
+                        print(f"Error importing {submodule_name}: {e}", file=sys.stderr)
+                    except Exception as e:
+                        print(f"Error importing {submodule_name}: {e}", file=sys.stderr)
+        except Exception as e:
+            print(f"Error importing {module_name}: {e}", file=sys.stderr)
 
     def _register_operations_from_module(self, module) -> None:
         """Register all MathOperation subclasses from a module."""
@@ -160,6 +216,11 @@ class PluginManager:
     def get_duplicate_operations(self) -> Dict[str, List[str]]:
         """Return operation names that were defined by multiple plugin classes."""
         return {name: owners[:] for name, owners in self.duplicate_operations.items()}
+
+    def get_unavailable_plugins(self) -> Dict[str, str]:
+        """Return built-in plugin modules skipped for missing optional dependencies."""
+
+        return dict(self.unavailable_plugins)
 
     def _convert_string_to_type(self, value: str) -> Any:
         """Convert string to appropriate type (number or boolean).

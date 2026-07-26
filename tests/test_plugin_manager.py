@@ -59,6 +59,41 @@ def test_discover_plugins_records_builtin_duplicate_operations():
     assert any("plugins.number_theory_plugin" in owner for owner in duplicates["factorial"])
 
 
+def test_duplicate_builtin_operations_use_declared_canonical_owner():
+    pm = PluginManager()
+    pm.discover_plugins()
+
+    expected_owners = {
+        "factorial": "plugins.number_theory_plugin",
+        "gcd": "plugins.number_theory_plugin",
+        "mean": "plugins.statistics_plugin",
+        "variance": "plugins.statistics_plugin",
+    }
+
+    for operation, module_name in expected_owners.items():
+        assert pm.operations[operation].__module__ == module_name
+
+
+def test_missing_optional_dependencies_skip_only_affected_plugins(monkeypatch, capsys):
+    from core import plugin_manager as plugin_manager_module
+
+    original_find_spec = plugin_manager_module.importlib.util.find_spec
+
+    def fake_find_spec(name, *args, **kwargs):
+        if name == "numpy":
+            return None
+        return original_find_spec(name, *args, **kwargs)
+
+    monkeypatch.setattr(plugin_manager_module.importlib.util, "find_spec", fake_find_spec)
+    pm = PluginManager()
+    pm.discover_plugins()
+
+    assert "add" in pm.operations
+    assert "matrix" not in pm.operations
+    assert pm.get_unavailable_plugins()["plugins.matrix_operations_plugin"] == "numpy"
+    assert "Error importing" not in capsys.readouterr().err
+
+
 def test_external_plugin_cannot_replace_existing_operation(tmp_path, capsys):
     plugin_dir = tmp_path / "custom_plugins"
     plugin_dir.mkdir()

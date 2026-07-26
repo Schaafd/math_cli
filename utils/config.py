@@ -1,9 +1,10 @@
 """Configuration management for math_cli with user preferences."""
 
-import json
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional
+
+from utils.serialization import atomic_write_json, load_json
 
 
 class ConfigManager:
@@ -72,15 +73,14 @@ class ConfigManager:
         """
         if self.config_file.exists():
             try:
-                with open(self.config_file, 'r') as f:
-                    user_config = json.load(f)
+                user_config = load_json(self.config_file)
 
                 # Merge with defaults (user config takes precedence)
                 config = self.defaults.copy()
                 config.update(user_config)
 
                 return config
-            except (json.JSONDecodeError, IOError) as e:
+            except (OSError, TypeError, ValueError) as e:
                 print(f"Warning: Could not load config file: {e}")
                 print("Using default configuration")
                 return self.defaults.copy()
@@ -102,10 +102,9 @@ class ConfigManager:
             config = self.config
 
         try:
-            with open(self.config_file, 'w') as f:
-                json.dump(config, f, indent=2)
+            atomic_write_json(self.config_file, config)
             return True
-        except IOError as e:
+        except (OSError, TypeError, ValueError) as e:
             print(f"Warning: Could not save config file: {e}")
             return False
 

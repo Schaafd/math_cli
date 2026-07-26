@@ -4,12 +4,10 @@ This module provides a variable system that allows users to store and reference
 values during interactive sessions and script execution.
 """
 
-import json
-import os
 from typing import Any, Dict, Optional, Union
 from pathlib import Path
-import numpy as np
-import pandas as pd
+
+from utils.serialization import atomic_write_json, load_json
 
 
 class VariableStore:
@@ -38,13 +36,10 @@ class VariableStore:
             return
 
         try:
-            with open(self._persistence_path, 'r') as f:
-                data = json.load(f)
-                # Only load simple types (no complex objects)
-                for key, value in data.items():
-                    if isinstance(value, (int, float, str, bool, list, dict)):
-                        self._persistent_vars[key] = value
-        except (json.JSONDecodeError, IOError):
+            data = load_json(self._persistence_path)
+            for key, value in data.items():
+                self._persistent_vars[key] = value
+        except (OSError, TypeError, ValueError):
             pass
 
     def _save_persistent_vars(self):
@@ -52,19 +47,10 @@ class VariableStore:
         if not self._persistence_path:
             return
 
-        # Ensure directory exists
-        self._persistence_path.parent.mkdir(parents=True, exist_ok=True)
-
         try:
-            # Only save simple types that are JSON serializable
-            saveable_vars = {}
-            for key, value in self._persistent_vars.items():
-                if isinstance(value, (int, float, str, bool, list, dict)):
-                    saveable_vars[key] = value
-
-            with open(self._persistence_path, 'w') as f:
-                json.dump(saveable_vars, f, indent=2)
-        except (IOError, TypeError):
+            self._persistence_path.parent.mkdir(parents=True, exist_ok=True)
+            atomic_write_json(self._persistence_path, self._persistent_vars)
+        except (OSError, TypeError, ValueError):
             pass
 
     def set(self, name: str, value: Any, persistent: bool = False):
@@ -233,9 +219,9 @@ class VariableStore:
             return f'[{", ".join(self.format_value(v) for v in value)}]'
         elif isinstance(value, dict):
             return f'{{{", ".join(f"{k}: {self.format_value(v)}" for k, v in value.items())}}}'
-        elif isinstance(value, np.ndarray):
+        elif type(value).__module__.split(".", 1)[0] == "numpy" and hasattr(value, "shape"):
             return f'Array{value.shape}'
-        elif isinstance(value, pd.DataFrame):
+        elif type(value).__module__.split(".", 1)[0] == "pandas" and type(value).__name__ == "DataFrame":
             return f'DataFrame[{value.shape[0]}×{value.shape[1]}]'
         else:
             return str(type(value).__name__)

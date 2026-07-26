@@ -47,9 +47,15 @@ class MathCommandEngine:
     ) -> None:
         self.plugin_manager = plugin_manager
         self.operations_metadata = operations_metadata
-        self.history = history if history is not None else HistoryManager()
-        self.session_manager = session_manager if session_manager is not None else get_session_manager()
         self.record_history = record_history
+        self.history = (
+            history
+            if history is not None
+            else HistoryManager(persistent=record_history)
+        )
+        self.session_manager = session_manager
+        if self.record_history and self.session_manager is None:
+            self.session_manager = get_session_manager()
         self.last_result: Any = None
 
         if self.record_history:
@@ -303,11 +309,15 @@ class MathCommandEngine:
 
         if self.record_history:
             self.history.add_entry(command, result)
+            if self.session_manager is None:  # pragma: no cover - defensive
+                raise RuntimeError("Persistent command engine has no session manager")
             self.session_manager.add_command(command, result)
 
         return CommandExecution(command=command, result=result, kind=kind)
 
     def _ensure_session(self) -> None:
+        if self.session_manager is None:  # pragma: no cover - defensive
+            return
         if self.session_manager.restore_last_session():
             return
 

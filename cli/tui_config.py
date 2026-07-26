@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import os
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List
+
+from utils.serialization import atomic_write_json, load_json
 
 
 DEFAULT_THEME_NAME = "dark-plus"
@@ -367,9 +368,7 @@ class TUIConfig:
 
     def save(self, config: Dict[str, Any] | None = None) -> bool:
         data = config if config is not None else self.config
-        with open(self.config_file, "w") as handle:
-            json.dump(data, handle, indent=2)
-            handle.write("\n")
+        atomic_write_json(self.config_file, data)
         return True
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -396,8 +395,7 @@ class TUIConfig:
         return valid_commands or list(DEFAULT_TUI_CONFIG["quick_commands"])
 
     def _load(self) -> Dict[str, Any]:
-        with open(self.config_file, "r") as handle:
-            user_config = json.load(handle)
+        user_config = load_json(self.config_file)
         migrated = self._migrate_config(user_config)
         config = self._merge_config(DEFAULT_TUI_CONFIG, migrated)
         if migrated != user_config:

@@ -3,7 +3,11 @@
 from core.base_operations import MathOperation
 import math
 from functools import reduce
-import sympy
+from utils.lazy_import import LazyModule
+
+
+REQUIRED_DEPENDENCIES = ("sympy",)
+sympy = LazyModule("sympy")
 
 
 class IsPrimeOperation(MathOperation):

@@ -6,13 +6,17 @@ This module provides functionality to:
 - Preview and inspect datasets
 - Validate data integrity
 """
+from __future__ import annotations
 
-import pandas as pd
 import json
 from pathlib import Path
 from typing import Union, Dict, List, Any, Optional
 from rich.console import Console
 from rich.table import Table
+from utils.lazy_import import LazyModule
+
+
+pd = LazyModule("pandas")
 
 console = Console()
 

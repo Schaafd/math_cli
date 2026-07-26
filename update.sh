@@ -5,11 +5,26 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 install_editable() {
   if command -v uv >/dev/null 2>&1; then
-    uv tool install --force --editable "$ROOT_DIR"
+    uv tool install --force --editable "$ROOT_DIR[all]"
   elif command -v pipx >/dev/null 2>&1; then
-    pipx install --force --editable "$ROOT_DIR"
+    pipx install --force --editable "$ROOT_DIR[all]"
   else
-    python3 -m pip install --user --upgrade --editable "$ROOT_DIR"
+    local python_cmd
+    python_cmd=""
+    for candidate in python3.14 python3.13 python3.12 python3.11 python3; do
+      if command -v "$candidate" >/dev/null 2>&1 \
+          && "$candidate" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))'; then
+        python_cmd="$candidate"
+        break
+      fi
+    done
+
+    if [[ -z "$python_cmd" ]]; then
+      echo "Error: Math CLI requires Python 3.11 or newer." >&2
+      return 1
+    fi
+
+    "$python_cmd" -m pip install --user --upgrade --editable "$ROOT_DIR[all]"
     echo "If math is not found, add your Python user scripts directory to PATH."
   fi
 }

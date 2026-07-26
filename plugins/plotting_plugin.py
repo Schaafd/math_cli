@@ -3,6 +3,7 @@
 Provides both basic plotting operations and statistical plotting
 operations that integrate with loaded datasets.
 """
+from __future__ import annotations
 
 from core.base_operations import MathOperation
 from utils.plotting import plot_function_string, plot_expression, ASCIIPlotter
@@ -13,8 +14,12 @@ from utils.advanced_plotting import (
     plot_scatter_regression,
     plot_heatmap
 )
-import pandas as pd
-import numpy as np
+from utils.lazy_import import LazyModule
+
+
+REQUIRED_DEPENDENCIES = ("numpy", "pandas")
+np = LazyModule("numpy")
+pd = LazyModule("pandas")
 
 
 class PlotFunctionOperation(MathOperation):

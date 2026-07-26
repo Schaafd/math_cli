@@ -8,12 +8,17 @@ This plugin provides data manipulation and transformation capabilities including
 - Binning
 - Aggregation
 """
+from __future__ import annotations
 
 from core.base_operations import MathOperation
-import pandas as pd
-import numpy as np
 from typing import Union, List, Any
 from utils.data_io import get_data_manager
+from utils.lazy_import import LazyModule
+
+
+REQUIRED_DEPENDENCIES = ("numpy", "pandas")
+np = LazyModule("numpy")
+pd = LazyModule("pandas")
 
 
 class FilterDataOperation(MathOperation):

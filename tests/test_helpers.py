@@ -16,3 +16,24 @@ def test_format_plugin_list_outputs_expected_structure():
     assert 'Calculate the square root of n' in out
     assert 'Basic Arithmetic' in out  # Category name
 
+
+def test_format_plugin_list_hides_private_internal_operations():
+    metadata = {
+        "add": {
+            "args": ["a", "b"],
+            "help": "Add two numbers",
+            "name": "add",
+            "category": "arithmetic",
+        },
+        "_internal": {
+            "args": [],
+            "help": "Internal only",
+            "name": "_internal",
+            "category": "internal",
+        },
+    }
+
+    out = format_plugin_list(metadata)
+
+    assert "Total: 1 operations" in out
+    assert "_internal" not in out

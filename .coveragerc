@@ -1,17 +1,12 @@
 [run]
+branch = True
 omit =
-    plugins/*
-    cli/interactive_mode.py
-    cli/multiline_input.py
-    utils/visual.py
-    cli/autocompletion.py
-    cli/help_system.py
-    cli/keybindings.py
-    utils/config.py
-    utils/themes.py
-    utils/history.py
-    utils/performance.py
-    utils/plotting.py
-    utils/accessibility.py
-    utils/animations.py
+    .venv/*
+    tests/*
     math_cli_orig.py
+    plugins/plugin_template.py
+
+[report]
+exclude_also =
+    if TYPE_CHECKING:
+    if __name__ == .__main__.:
